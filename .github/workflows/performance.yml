@@ -1,0 +1,251 @@
+name: Performance Testing (k6)
+
+on:
+  # Disabled auto-triggers to save CI minutes
+  # push:
+  #   branches: [ main ]
+  # pull_request:
+  #   branches: [ main ]
+  #   paths:
+  #     - 'DevHunt.CoreApi/**'
+  #     - 'DevHunt.AuthService/**'
+  #     - 'tests/performance/**'
+  workflow_dispatch:
+    inputs:
+      vus:
+        description: 'Number of virtual users'
+        required: false
+        default: '10'
+      duration:
+        description: 'Test duration (e.g., 30s, 1m, 5m)'
+        required: false
+        default: '30s'
+      verbose_logs:
+        description: 'Upload job logs as artifact'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: performance-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  K6_VUS: ${{ github.event.inputs.vus || '10' }}
+  K6_DURATION: ${{ github.event.inputs.duration || '30s' }}
+
+jobs:
+  k6-smoke-test:
+    name: k6 Smoke Test
+    runs-on: ubuntu-latest
+    
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: devhunt
+          POSTGRES_PASSWORD: devhunt_test
+          POSTGRES_DB: devhunt_test
+        ports:
+          - 5434:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build CoreApi
+        run: dotnet build DevHunt.CoreApi/DevHunt.CoreApi.csproj --configuration Release
+
+      - name: Start CoreApi
+        run: |
+          export ASPNETCORE_ENVIRONMENT=Development
+          export ASPNETCORE_URLS="http://0.0.0.0:5000"
+          # nosec: CI test credentials - not used in production
+          export ConnectionStrings__DefaultConnection="Host=localhost;Port=5434;Database=devhunt_test;Username=devhunt;Password=devhunt_test;Pooling=true;MinPoolSize=2;MaxPoolSize=20;Connection Idle Lifetime=60;Timeout=30;Command Timeout=30"
+          export ConnectionStrings__ReadOnlyConnection="Host=localhost;Port=5434;Database=devhunt_test;Username=devhunt;Password=devhunt_test;Pooling=true;MinPoolSize=1;MaxPoolSize=10;Connection Idle Lifetime=60;Timeout=30;Command Timeout=30"
+          export ConnectionStrings__RedisConnection="localhost:6380"
+          # Disable optional services that aren't available in CI
+          export ObjectStorage__Endpoint=""
+          export ObjectStorage__AccessKey=""
+          export RabbitMQ__ConnectionString=""
+          export SearchService__Uri=""
+          export MLService__BaseUrl=""
+          export IntegrationGateway__BaseUrl=""
+          export NotificationService__BaseUrl=""
+          nohup dotnet run --project DevHunt.CoreApi/DevHunt.CoreApi.csproj --configuration Release --no-build --no-launch-profile > api.log 2>&1 &
+          echo $! > api.pid
+          echo "Started API with PID $(cat api.pid)"
+
+      - name: Wait for API to be ready
+        run: |
+          echo "Waiting for API to start..."
+          for i in {1..60}; do
+            if curl -sf http://localhost:5000/health > /dev/null 2>&1; then
+              echo "✅ API is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/60 - API not ready yet..."
+            sleep 2
+          done
+          echo "❌ API failed to start. Logs:"
+          cat api.log || echo "No logs found"
+          exit 1
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6 -y
+
+      - name: Run k6 smoke test
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          k6 run tests/performance/smoke-test.js 2>&1 | tee ${{ github.workspace }}/logs/k6-smoke.log
+        env:
+          K6_BASE_URL: http://localhost:5000
+
+      - name: Upload k6 results
+        uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: k6-smoke-results
+          path: |
+            tests/performance/results/
+            ${{ github.workspace }}/logs/
+          retention-days: 30
+
+  k6-load-test:
+    name: k6 Load Test
+    runs-on: ubuntu-latest
+    # Only run on main branch or manual trigger
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    needs: k6-smoke-test
+    
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: devhunt
+          POSTGRES_PASSWORD: devhunt_test
+          POSTGRES_DB: devhunt_test
+        ports:
+          - 5436:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6381:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build CoreApi
+        run: dotnet build DevHunt.CoreApi/DevHunt.CoreApi.csproj --configuration Release
+
+      - name: Start CoreApi
+        run: |
+          export ASPNETCORE_ENVIRONMENT=Development
+          export ASPNETCORE_URLS="http://0.0.0.0:5000"
+          # nosec: CI test credentials - not used in production
+          export ConnectionStrings__DefaultConnection="Host=localhost;Port=5436;Database=devhunt_test;Username=devhunt;Password=devhunt_test;Pooling=true;MinPoolSize=2;MaxPoolSize=20;Connection Idle Lifetime=60;Timeout=30;Command Timeout=30"
+          export ConnectionStrings__ReadOnlyConnection="Host=localhost;Port=5436;Database=devhunt_test;Username=devhunt;Password=devhunt_test;Pooling=true;MinPoolSize=1;MaxPoolSize=10;Connection Idle Lifetime=60;Timeout=30;Command Timeout=30"
+          export ConnectionStrings__RedisConnection="localhost:6381"
+          # Disable optional services that aren't available in CI
+          export ObjectStorage__Endpoint=""
+          export ObjectStorage__AccessKey=""
+          export RabbitMQ__ConnectionString=""
+          export SearchService__Uri=""
+          export MLService__BaseUrl=""
+          export IntegrationGateway__BaseUrl=""
+          export NotificationService__BaseUrl=""
+          nohup dotnet run --project DevHunt.CoreApi/DevHunt.CoreApi.csproj --configuration Release --no-build --no-launch-profile > api.log 2>&1 &
+          echo $! > api.pid
+          echo "Started API with PID $(cat api.pid)"
+
+      - name: Wait for API to be ready
+        run: |
+          echo "Waiting for API to start..."
+          for i in {1..60}; do
+            if curl -sf http://localhost:5000/health > /dev/null 2>&1; then
+              echo "✅ API is ready!"
+              exit 0
+            fi
+            echo "Attempt $i/60 - API not ready yet..."
+            sleep 2
+          done
+          echo "❌ API failed to start. Logs:"
+          cat api.log || echo "No logs found"
+          exit 1
+
+      - name: Install k6
+        run: |
+          sudo gpg -k
+          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update
+          sudo apt-get install k6 -y
+
+      - name: Run k6 load test
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          k6 run tests/performance/load-test.js 2>&1 | tee ${{ github.workspace }}/logs/k6-load.log
+        env:
+          K6_BASE_URL: http://localhost:5000
+          K6_VUS: ${{ env.K6_VUS }}
+          K6_DURATION: ${{ env.K6_DURATION }}
+
+      - name: Upload k6 results
+        uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: k6-load-results
+          path: |
+            tests/performance/results/
+            ${{ github.workspace }}/logs/
+          retention-days: 30
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            ## ⚡ Performance Test Results
+            
+            Load test completed with ${{ env.K6_VUS }} virtual users for ${{ env.K6_DURATION }}.
+            
+            Check the artifacts for detailed results.

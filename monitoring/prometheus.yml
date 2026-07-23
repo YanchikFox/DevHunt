@@ -1,0 +1,98 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'devhunt-local'
+    environment: 'development'
+
+remote_write:
+  - url: 'http://openobserve:5080/api/default/prometheus/api/v1/write'
+    basic_auth:
+      username: 'admin@devhunt.local'
+      password: 'ChangeMe123!'
+    queue_config:
+      max_samples_per_send: 1000
+      max_shards: 2
+
+# AlertManager commented out (используется Grafana для алертов)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Правила алертов
+rule_files:
+  - 'alerts.yml'
+
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Core API metrics
+  - job_name: 'core-api'
+    static_configs:
+      - targets: ['core-api:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # Auth Service metrics
+  - job_name: 'auth-service'
+    static_configs:
+      - targets: ['auth-service:8080']
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+
+  # PostgreSQL exporter
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # Redis exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # RabbitMQ exporter (встроенный Prometheus endpoint)
+  - job_name: 'rabbitmq'
+    static_configs:
+      - targets: ['message-broker:15692']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+
+  # RabbitMQ exporter (отдельный exporter для детальных метрик)
+  - job_name: 'rabbitmq-exporter'
+    static_configs:
+      - targets: ['rabbitmq-exporter:9419']
+    scrape_interval: 30s
+    metrics_path: '/metrics'
+
+  # Node.js services (Notification, Integration Gateway)
+  # Если они экспортируют метрики через prom-client
+  - job_name: 'notification-service'
+    static_configs:
+      - targets: ['notification-service:5003']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  - job_name: 'integration-gateway'
+    static_configs:
+      - targets: ['integration-gateway:5002']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s
+
+  # ML Service (FastAPI) - если настроен prometheus-fastapi-instrumentator
+  - job_name: 'ml-service'
+    static_configs:
+      - targets: ['ml-service:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 15s
+    scrape_timeout: 10s

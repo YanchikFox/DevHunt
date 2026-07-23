@@ -1,0 +1,88 @@
+# E2E Docker Compose override
+#
+# Purpose:
+# - Provide deterministic, non-production secrets so `docker compose` doesn't require a local .env
+# - Add a one-off DB seeder service
+#
+# SECURITY NOTE: These are INTENTIONAL test-only credentials for E2E testing.
+# They are NOT used in production. See docker-compose.yml for production config.
+# kics-scan ignore-line
+# checkov:skip=CKV_SECRET_6: Test-only credentials for E2E testing
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.e2e.yml up -d --build
+#
+services:
+  db:
+    environment:
+      # nosec: E2E test credential
+      POSTGRES_PASSWORD: devhunt_dev_password_123
+
+  db-migrator:
+    environment:
+      # nosec: E2E test credential
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-devhunt_db};Username=${POSTGRES_USER:-postgres};Password=devhunt_dev_password_123"
+
+  message-broker:
+    environment:
+      RABBITMQ_DEFAULT_USER: devhunt
+      # nosec: E2E test credential
+      # nosec: E2E test credential
+      RABBITMQ_DEFAULT_PASS: devhunt_rabbitmq_123
+
+  auth-service:
+    environment:
+      # nosec: E2E test credentials
+      Jwt__Key: devhunt_e2e_jwt_key_min_32_characters_long!!
+      # nosec: E2E test credential
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-devhunt_db};Username=${POSTGRES_USER:-postgres};Password=devhunt_dev_password_123"
+      # Keep email sending in "mock" mode (no SMTP configured) so registration flows don't fail.
+      Email__SmtpHost: ""
+      Email__SmtpPort: ""
+
+  core-api:
+    environment:
+      # nosec: E2E test credentials
+      Jwt__Key: devhunt_e2e_jwt_key_min_32_characters_long!!
+      Encryption__Key: devhunt_e2e_encryption_key_32_chars!!
+      Encryption__IV: devhunt_e2e_iv_16_chr
+      # nosec: E2E test credential
+      RabbitMQ__ConnectionString: "amqp://devhunt:devhunt_rabbitmq_123@message-broker:5672"
+      # nosec: E2E test credential
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-devhunt_db};Username=${POSTGRES_USER:-postgres};Password=devhunt_dev_password_123"
+      ConnectionStrings__ReadOnlyConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-devhunt_db};Username=${POSTGRES_USER:-postgres};Password=devhunt_dev_password_123"
+    depends_on:
+      db-seeder:
+        condition: service_completed_successfully
+
+  notification-service:
+    environment:
+      # nosec: E2E test credential
+      RABBITMQ_URL: "amqp://devhunt:devhunt_rabbitmq_123@message-broker:5672"
+
+  integration-gateway:
+    environment:
+      # nosec: E2E test credential
+      RABBITMQ_URL: "amqp://devhunt:devhunt_rabbitmq_123@message-broker:5672"
+
+  # One-off job to populate the DB with realistic dev data.
+  db-seeder:
+    container_name: ${CONTAINER_DB_SEEDER_NAME:-devhunt-database-seeder}
+    build:
+      context: .
+      dockerfile: ./DevHunt.DatabaseSeeder/Dockerfile
+      network: host
+    environment:
+      # nosec: E2E test credential
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-devhunt_db};Username=${POSTGRES_USER:-postgres};Password=devhunt_dev_password_123"
+      ASPNETCORE_ENVIRONMENT: "Development"
+      # Deterministic E2E credentials (dev-only).
+      DEVHUNT_E2E_USER_EMAIL: "e2e@devhunt.local"
+      # nosec: E2E test credential
+      DEVHUNT_E2E_USER_PASSWORD: "TestPassword123!"
+    depends_on:
+      db:
+        condition: service_healthy
+      db-migrator:
+        condition: service_completed_successfully
+    restart: "no"

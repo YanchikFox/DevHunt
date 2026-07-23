@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devhunt-auth-service
+  namespace: devhunt
+  labels:
+    app: devhunt-auth-service
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: devhunt-auth-service
+  template:
+    metadata:
+      labels:
+        app: devhunt-auth-service
+        tier: backend
+    spec:
+      serviceAccountName: devhunt-auth-service
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: auth-service
+          image: devhunt/auth-service:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: ConnectionStrings__DefaultConnection
+              valueFrom:
+                secretKeyRef:
+                  name: devhunt-secrets
+                  key: database-connection
+            - name: Jwt__Key
+              valueFrom:
+                secretKeyRef:
+                  name: devhunt-secrets
+                  key: jwt-key
+            - name: Jwt__Issuer
+              value: "DevHunt.AuthService"
+            - name: Jwt__Audience
+              value: "DevHunt.CoreApi"
+            - name: KeyVault__Uri
+              valueFrom:
+                secretKeyRef:
+                  name: devhunt-secrets
+                  key: keyvault-uri
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devhunt-auth-service
+  namespace: devhunt
+  labels:
+    app: devhunt-auth-service
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: devhunt-auth-service

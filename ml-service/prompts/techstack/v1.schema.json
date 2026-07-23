@@ -1,0 +1,25 @@
+{
+  "version": "v1",
+  "options": [
+    {
+      "name": "string (short stack name)",
+      "architecture": "monolith | modular-monolith | microservices | serverless",
+      "backend": {
+        "language": "string",
+        "framework": "string"
+      },
+      "frontend": {
+        "framework": "string"
+      },
+      "database": {
+        "primary": "string",
+        "why": "string (1 sentence why this DB fits)"
+      },
+      "components": ["cache", "queue", "search", "realtime", "storage", "auth", "observability"],
+      "description": "string (2-3 sentences)",
+      "why_this_fits": ["string (specific reason tied to project goals)"],
+      "pros": ["string"],
+      "cons": ["string"]
+    }
+  ]
+}

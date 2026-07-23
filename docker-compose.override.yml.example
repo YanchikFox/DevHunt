@@ -1,0 +1,48 @@
+# Docker Compose Override for Local Development
+# 
+# This file provides default values for local development only.
+# Copy this file to docker-compose.override.yml (git will ignore it)
+# 
+# WARNING: These values are NOT secure and should NEVER be used in production!
+# Production deployments MUST use real secrets from environment variables or secrets manager.
+#
+# Usage:
+#   1. Copy this file: cp docker-compose.override.yml.example docker-compose.override.yml
+#   2. Optionally modify values in docker-compose.override.yml
+#   3. Run: docker-compose up
+
+services:
+  db:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devhunt_local_dev_password}
+  
+  message-broker:
+    environment:
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-devhunt_local_dev_password}
+  
+  auth-service:
+    environment:
+      Jwt__Key: ${JWT_KEY:-devhunt_local_dev_jwt_key_min_32_characters_long}
+  
+  core-api:
+    environment:
+      Jwt__Key: ${JWT_KEY:-devhunt_local_dev_jwt_key_min_32_characters_long}
+      RabbitMQ__ConnectionString: "amqp://${RABBITMQ_DEFAULT_USER:-devhunt}:${RABBITMQ_DEFAULT_PASS:-devhunt_local_dev_password}@${RABBITMQ_HOST:-message-broker}:${RABBITMQ_PORT:-${PORT_MESSAGE_BROKER:-5672}}"
+      ObjectStorage__AccessKey: ${OBJECT_STORAGE_ACCESS_KEY:-devhunt_access_key_dev_123456789012}
+      ObjectStorage__SecretKey: ${OBJECT_STORAGE_SECRET_KEY:-devhunt_secret_key_dev_1234567890123456}
+      Encryption__Key: ${ENCRYPTION_KEY:-devhunt_local_encryption_key_32_chars!}
+      Encryption__IV: ${ENCRYPTION_IV:-devhunt_local_iv_16}
+  
+  ml-service:
+    environment:
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-devhunt_local_dev_password}@${POSTGRES_HOST:-db}:${POSTGRES_PORT:-${PORT_DB:-5432}}/${POSTGRES_DB:-devhunt_db}"
+  
+  db-migrator:
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=${POSTGRES_HOST:-db};Port=${POSTGRES_PORT:-${PORT_DB:-5432}};Database=${POSTGRES_DB:-devhunt_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:-devhunt_local_dev_password}"
+  
+  backup-service:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-devhunt_local_dev_password}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-devhunt_local_dev_password}
+

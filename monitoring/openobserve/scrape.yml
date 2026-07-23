@@ -1,0 +1,36 @@
+# OpenObserve Prometheus Scrape Configuration
+# This file defines where to collect metrics from
+
+scrape_configs:
+  # Core API metrics (ASP.NET Core exposes /metrics via Prometheus middleware)
+  - job_name: 'core-api'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['core-api:8080']
+    metrics_path: /metrics
+
+  # Auth Service metrics
+  - job_name: 'auth-service'
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['auth-service:8080']
+    metrics_path: /metrics
+
+  # RabbitMQ built-in metrics (port 15692)
+  - job_name: 'rabbitmq'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['message-broker:15692']
+    metrics_path: /metrics
+
+  # Redis metrics (if redis_exporter is added back)
+  # - job_name: 'redis'
+  #   scrape_interval: 30s
+  #   static_configs:
+  #     - targets: ['redis-exporter:9121']
+
+  # PostgreSQL metrics (if postgres_exporter is added back)
+  # - job_name: 'postgresql'
+  #   scrape_interval: 30s
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']

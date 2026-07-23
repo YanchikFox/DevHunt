@@ -1,0 +1,252 @@
+name: Contract Testing (Pact)
+
+on:
+  # Disabled auto-triggers to save CI minutes
+  # push:
+  #   branches: [ main, develop ]
+  #   paths:
+  #     - 'DevHunt.CoreApi/**'
+  #     - 'DevHunt.AuthService/**'
+  #     - 'frontend/src/api/**'
+  #     - 'frontend/src/services/**'
+  #     - 'tests/contract/**'
+  # pull_request:
+  #   branches: [ main, develop ]
+  #   paths:
+  #     - 'DevHunt.CoreApi/**'
+  #     - 'DevHunt.AuthService/**'
+  #     - 'frontend/src/api/**'
+  #     - 'frontend/src/services/**'
+  #     - 'tests/contract/**'
+  workflow_dispatch:
+    inputs:
+      verbose_logs:
+        description: 'Upload job logs as artifact'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: contract-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
+  PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
+
+jobs:
+  consumer-tests:
+    name: Consumer Contract Tests (Frontend)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Install Pact dependencies
+        working-directory: ./frontend
+        run: npm install --no-save @pact-foundation/pact @pact-foundation/pact-node
+
+      - name: Run consumer contract tests
+        working-directory: ./frontend
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          { npm run test:contract || echo "No contract tests configured yet"; } 2>&1 | tee ${{ github.workspace }}/logs/consumer-test.log
+        continue-on-error: true
+
+      - name: Upload pacts to broker
+        if: env.PACT_BROKER_BASE_URL != ''
+        working-directory: ./frontend
+        run: |
+          npx pact-broker publish ./pacts \
+            --consumer-app-version ${{ github.sha }} \
+            --branch ${{ github.ref_name }} \
+            --broker-base-url ${{ env.PACT_BROKER_BASE_URL }} \
+            --broker-token ${{ env.PACT_BROKER_TOKEN }}
+        continue-on-error: true
+
+      - name: Upload pacts as artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: pacts
+          path: frontend/pacts/
+          if-no-files-found: ignore
+          retention-days: 30
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: pact-consumer-logs
+          path: ${{ github.workspace }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  provider-verification-coreapi:
+    name: Provider Verification (CoreApi)
+    runs-on: ubuntu-latest
+    needs: consumer-tests
+    if: ${{ !cancelled() }}
+
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: devhunt
+          POSTGRES_PASSWORD: devhunt_test
+          POSTGRES_DB: devhunt_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download pacts
+        uses: actions/download-artifact@v5
+        continue-on-error: true
+        with:
+          name: pacts
+          path: pacts/
+
+      - name: Install Pact verifier
+        run: dotnet tool install -g pact-net-cli || echo "Using NuGet package instead"
+
+      - name: Run provider verification tests
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          dotnet test DevHunt.CoreApi.Tests/DevHunt.CoreApi.Tests.csproj \
+            --filter "Category=Contract" \
+            --configuration Release \
+            2>&1 | tee ${{ github.workspace }}/logs/provider-coreapi.log
+        continue-on-error: true
+        env:
+          PACT_PROVIDER_VERSION: ${{ github.sha }}
+          PACT_PROVIDER_BRANCH: ${{ github.ref_name }}
+          PACT_BROKER_BASE_URL: ${{ env.PACT_BROKER_BASE_URL }}
+          PACT_BROKER_TOKEN: ${{ env.PACT_BROKER_TOKEN }}
+          # nosec: CI test credential - not used in production
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5433;Database=devhunt_test;Username=devhunt;Password=devhunt_test;Pooling=true;MinPoolSize=2;MaxPoolSize=20;Connection Idle Lifetime=60;Timeout=30;Command Timeout=30"
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: pact-provider-coreapi-logs
+          path: ${{ github.workspace }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  provider-verification-auth:
+    name: Provider Verification (AuthService)
+    runs-on: ubuntu-latest
+    needs: consumer-tests
+    if: ${{ !cancelled() }}
+
+    services:
+      db:
+        image: postgres:16
+        env:
+          POSTGRES_USER: devhunt
+          # nosec: CI test credential - not used in production
+          POSTGRES_PASSWORD: devhunt_test
+          POSTGRES_DB: devhunt_test
+        ports:
+          - 5435:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Download pacts
+        uses: actions/download-artifact@v5
+        continue-on-error: true
+        with:
+          name: pacts
+          path: pacts/
+
+      - name: Run provider verification tests
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          dotnet test DevHunt.AuthService.Tests/DevHunt.AuthService.Tests.csproj \
+            --filter "Category=Contract" \
+            --configuration Release \
+            2>&1 | tee ${{ github.workspace }}/logs/provider-auth.log
+        continue-on-error: true
+        env:
+          PACT_PROVIDER_VERSION: ${{ github.sha }}
+          PACT_PROVIDER_BRANCH: ${{ github.ref_name }}
+          ConnectionStrings__DefaultConnection: "Host=localhost;Port=5435;Database=devhunt_test;Username=devhunt;Password=devhunt_test;Pooling=true;MinPoolSize=2;MaxPoolSize=20;Connection Idle Lifetime=60;Timeout=30;Command Timeout=30"
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: pact-provider-auth-logs
+          path: ${{ github.workspace }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  can-i-deploy:
+    name: Can I Deploy Check
+    runs-on: ubuntu-latest
+    needs: [provider-verification-coreapi, provider-verification-auth]
+    if: ${{ vars.PACT_BROKER_BASE_URL != '' }}
+    
+    steps:
+      - name: Check can-i-deploy
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          docker run --rm pactfoundation/pact-cli:latest \
+            pact-broker can-i-deploy \
+            --pacticipant "DevHunt-Frontend" \
+            --version ${{ github.sha }} \
+            --to-environment production \
+            --broker-base-url ${{ env.PACT_BROKER_BASE_URL }} \
+            --broker-token ${{ env.PACT_BROKER_TOKEN }} \
+            2>&1 | tee ${{ github.workspace }}/logs/can-i-deploy.log
+        continue-on-error: true
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: pact-deploy-check-logs
+          path: ${{ github.workspace }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7

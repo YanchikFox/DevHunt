@@ -1,0 +1,16 @@
+name: aislop
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: scanaislop/aislop@v0.10.2
+        with:
+          version: "0.10.2"
+          directory: frontend

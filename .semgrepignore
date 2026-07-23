@@ -1,0 +1,83 @@
+# ========================================
+# Semgrep Ignore Configuration for DevHunt
+# ========================================
+# This file tells Semgrep which files/directories to skip during scanning
+# to eliminate false positives and improve scan performance.
+
+# ========================================
+# Known False Positives
+# ========================================
+# Ignore secrets in migrations and test files
+DevHunt.Infrastructure/Migrations/
+DevHunt.Infrastructure/DevHuntDbContext.cs
+curl-cookies.txt
+
+# Ignore nginx.conf - H2C smuggling protection is implemented correctly
+# via conditional websocket-only Upgrade headers, checked by nginx-security.test.sh
+nginx/nginx.conf
+
+# ========================================
+# Build Output Directories (False Positives)
+# ========================================
+# These contain auto-generated metadata files with package info
+# that trigger "hardcoded credentials" warnings incorrectly
+**/bin/
+**/obj/
+**/Debug/
+**/Release/
+**/x64/
+**/x86/
+
+# ========================================
+# Dependencies (Not Our Code)
+# ========================================
+**/node_modules/
+**/.npm/
+**/packages/
+**/__pycache__/
+**/.venv/
+**/venv/
+**/.pytest_cache/
+
+# ========================================
+# Generated Files
+# ========================================
+**/*.deps.json
+**/*.runtimeconfig.json
+**/*.nuget.g.props
+**/*.nuget.g.targets
+**/project.assets.json
+
+# ========================================
+# Test Files (Different Security Context)
+# ========================================
+**/*Tests/
+**/*.Tests.csproj
+**/test/
+**/tests/
+
+# ========================================
+# Documentation & Assets
+# ========================================
+**/documentation/
+**/docs/
+**/*.md
+**/*.puml
+
+# ========================================
+# IDE & Tool Configurations
+# ========================================
+**/.vs/
+**/.vscode/
+**/.idea/
+**/.github/
+**/.git/
+
+# ========================================
+# Frontend Build Output
+# ========================================
+**/.next/
+**/out/
+**/dist/
+**/build/
+**/storybook-static/

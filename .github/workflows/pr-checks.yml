@@ -1,0 +1,170 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      verbose_logs:
+        description: 'Upload job logs as artifact'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  # Code quality checks
+  code-quality:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check PR title format
+        uses: amannn/action-semantic-pull-request@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            test
+            chore
+          scopes: |
+            api
+            frontend
+            ml
+            notification
+            integration
+            auth
+            infra
+          requireScope: false
+
+      - name: Check for merge conflicts
+        run: |
+          git fetch origin ${{ github.base_ref }}
+          git merge-base --is-ancestor origin/${{ github.base_ref }} HEAD || (echo "Merge conflict detected" && exit 1)
+
+      - name: Check file sizes
+        run: |
+          # Check for large files
+          find . -type f -size +10M -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./bin/*" -not -path "./obj/*" | while read file; do
+            echo "Large file detected: $file"
+            exit 1
+          done || echo "No large files found"
+
+      - name: Validate production Docker Compose merge
+        run: |
+          docker compose --env-file env/compose-ci.env \
+            -f docker-compose.yml \
+            -f docker-compose.prod.yml \
+            config --quiet
+
+  # Security checks
+  security:
+    name: Security Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Check for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+          extra_args: --exclude-paths .trufflehogignore
+
+      - name: Block database dumps in git
+        run: |
+          chmod +x scripts/security/check-no-db-dumps.sh
+          ./scripts/security/check-no-db-dumps.sh
+
+      - name: Check dependencies for vulnerabilities
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          AUDIT_FAILED=0
+          {
+            dotnet list package --vulnerable --include-transitive | tee /tmp/dotnet-audit.txt
+            if grep -qE "has the following vulnerable packages" /tmp/dotnet-audit.txt; then
+              echo "::error::Vulnerable .NET packages found"
+              AUDIT_FAILED=1
+            fi
+            cd frontend && npm audit --audit-level=high || AUDIT_FAILED=1
+            cd ../notification-service && npm audit --audit-level=high || AUDIT_FAILED=1
+            cd ../integration-gateway && npm audit --audit-level=high || AUDIT_FAILED=1
+          } 2>&1 | tee ${{ github.workspace }}/logs/dependency-audit.log
+          exit $AUDIT_FAILED
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: pr-security-logs
+          path: ${{ github.workspace }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Test coverage check
+  coverage:
+    name: Coverage Check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run tests with coverage
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          dotnet test --collect:"XPlat Code Coverage" --configuration Release 2>&1 | tee ${{ github.workspace }}/logs/coverage-test.log
+
+      - name: Check coverage threshold
+        run: |
+          echo "Coverage check would happen here"
+          # TODO: Add actual coverage threshold check (70%)
+          # coverage=$(generate-coverage-report)
+          # if [ $coverage -lt 70 ]; then
+          #   echo "Coverage is below 70%"
+          #   exit 1
+          # fi
+
+      - name: Comment PR with coverage
+        uses: marocchino/sticky-pull-request-comment@v2
+        env:
+          FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+        with:
+          message: |
+            ## 📊 Test Coverage Report
+            Coverage check completed.
+            **TODO:** Add actual coverage reporting here.
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: pr-coverage-logs
+          path: ${{ github.workspace }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+

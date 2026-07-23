@@ -1,0 +1,41 @@
+﻿{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:7002",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "CONNECTIONSTRINGS__DEFAULTCONNECTION": "Host=localhost;Port=5432;Database=devhunt_db;Username=postgres;Password=devhunt_dev_password_123;Pooling=true;MinPoolSize=5;MaxPoolSize=100;Connection Lifetime=0",
+        "CONNECTIONSTRINGS__REDISCONNECTION": "localhost:6379",
+        "OBJECTSTORAGE__ENDPOINT": "http://localhost:8333",
+        "SEARCHSERVICE__URI": "http://localhost:9200",
+        "RABBITMQ__CONNECTIONSTRING": "amqp://devhunt:devhunt_rabbitmq_123@localhost:5672",
+        "MLSERVICE__BASEURL": "http://localhost:8000",
+        "INTEGRATIONGATEWAY__BASEURL": "http://localhost:5002",
+        "NOTIFICATIONSERVICE__BASEURL": "http://localhost:5003",
+        "TRACING__AGENTHOST": "localhost"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7179;http://localhost:7002",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "CONNECTIONSTRINGS__DEFAULTCONNECTION": "Host=localhost;Port=5432;Database=devhunt_db;Username=postgres;Password=devhunt_dev_password_123;Pooling=true;MinPoolSize=5;MaxPoolSize=100;Connection Lifetime=0",
+        "CONNECTIONSTRINGS__REDISCONNECTION": "localhost:6379",
+        "OBJECTSTORAGE__ENDPOINT": "http://localhost:8333",
+        "SEARCHSERVICE__URI": "http://localhost:9200",
+        "RABBITMQ__CONNECTIONSTRING": "amqp://devhunt:devhunt_rabbitmq_123@localhost:5672",
+        "MLSERVICE__BASEURL": "http://localhost:8000",
+        "INTEGRATIONGATEWAY__BASEURL": "http://localhost:5002",
+        "NOTIFICATIONSERVICE__BASEURL": "http://localhost:5003",
+        "TRACING__AGENTHOST": "localhost"
+      }
+    }
+  }
+}

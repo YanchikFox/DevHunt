@@ -1,0 +1,116 @@
+on:
+  # Removed push trigger to save CI minutes
+  pull_request: {}
+  workflow_dispatch: # Manual trigger
+    inputs:
+      verbose_logs:
+        description: 'Upload job logs as artifact'
+        required: false
+        type: boolean
+        default: false
+name: Semgrep
+jobs:
+  semgrep:
+    name: semgrep/ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write  # For uploading SARIF results
+    env:
+      SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+    container:
+      image: semgrep/semgrep:1.151.0
+    steps:
+    - uses: actions/checkout@v4
+
+    # ──────────────────────────────────────────────────────────────
+    # Step 1: Validate local rules BEFORE scanning.
+    # Fails fast if any rule in .semgrep/ has invalid pattern syntax.
+    # Runs without token so no cloud auth is attempted.
+    # ──────────────────────────────────────────────────────────────
+    - name: Validate DevHunt custom rules
+      env:
+        SEMGREP_APP_TOKEN: ""
+      run: |
+        semgrep scan --validate --config .semgrep/ --metrics=off
+
+    # ──────────────────────────────────────────────────────────────
+    # Step 2: Cloud rules via Semgrep Platform (when token is set).
+    # `semgrep ci` does NOT accept --config, local rules run separately.
+    # ──────────────────────────────────────────────────────────────
+    - name: Run Semgrep CI (cloud rules)
+      if: env.SEMGREP_APP_TOKEN != ''
+      run: |
+        mkdir -p logs
+        semgrep ci --sarif --output semgrep-cloud.sarif 2>&1 | tee logs/semgrep-ci.log
+      continue-on-error: true
+
+    # ──────────────────────────────────────────────────────────────
+    # Step 3: DevHunt custom rules — always runs, token is cleared
+    # so semgrep doesn't try to contact the registry (exit code 8).
+    # --text shows findings in CI log; --sarif writes the SARIF file.
+    # ──────────────────────────────────────────────────────────────
+    - name: Run DevHunt local rules
+      env:
+        SEMGREP_APP_TOKEN: ""
+      run: |
+        mkdir -p logs
+        semgrep scan \
+          --config .semgrep/ \
+          --sarif --output semgrep-local.sarif \
+          --metrics=off \
+          2>&1 | tee logs/semgrep-local.log
+      continue-on-error: true  # Findings don't block CI while rules are being tuned
+
+    # ──────────────────────────────────────────────────────────────
+    # Step 4: Fallback — no token, run community + local rules.
+    # ──────────────────────────────────────────────────────────────
+    - name: Run Semgrep Scan (no token fallback)
+      if: env.SEMGREP_APP_TOKEN == ''
+      run: |
+        mkdir -p logs
+        semgrep scan \
+          --config auto \
+          --config .semgrep/ \
+          --sarif --output semgrep-cloud.sarif \
+          --metrics=off \
+          2>&1 | tee logs/semgrep-scan.log
+      continue-on-error: true
+
+    # ──────────────────────────────────────────────────────────────
+    # Upload SARIF to GitHub Security tab.
+    # Requires GitHub Advanced Security (free for public repos,
+    # paid for private). If not enabled, continue-on-error skips.
+    # ──────────────────────────────────────────────────────────────
+    - name: Upload cloud SARIF to Security tab
+      if: always() && hashFiles('semgrep-cloud.sarif') != ''
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: semgrep-cloud.sarif
+        category: semgrep-cloud
+      continue-on-error: true
+
+    - name: Upload local SARIF to Security tab
+      if: always() && hashFiles('semgrep-local.sarif') != ''
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: semgrep-local.sarif
+        category: semgrep-devhunt-rules
+      continue-on-error: true
+
+    # ──────────────────────────────────────────────────────────────
+    # Always upload SARIF + logs as downloadable artifacts.
+    # This is the reliable way to see findings regardless of
+    # whether GitHub Advanced Security is enabled.
+    # ──────────────────────────────────────────────────────────────
+    - name: Upload scan results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: semgrep-results-${{ github.run_id }}
+        path: |
+          semgrep-local.sarif
+          semgrep-cloud.sarif
+          logs/
+        if-no-files-found: ignore
+        retention-days: 14

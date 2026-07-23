@@ -1,0 +1,612 @@
+services:
+  # PostgreSQL Primary (Write)
+  # SERVICE NAME: db (can be changed by renaming the service and updating dependencies)
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: ${CONTAINER_DB_NAME:-devhunt-database-postgres}
+    environment:
+      # SECURITY: POSTGRES_PASSWORD MUST be set via environment variable - no default for production
+      # For development only, you can set a default in your local .env file
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
+      POSTGRES_DB: ${POSTGRES_DB:-devhunt_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+    # SECURITY: Ports exposed only for local development
+    # In production, remove port mappings - use internal Docker network only
+    ports:
+      - "127.0.0.1:${PORT_DB:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/db-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # Cache Service (Redis implementation)
+  # SERVICE NAME: cache-service (can be changed by renaming the service)
+  cache-service:
+    image: redis:7-alpine
+    container_name: ${CONTAINER_CACHE_NAME:-devhunt-cache-redis}
+    # SECURITY: Ports exposed only for local development
+    # In production, remove port mappings - use internal Docker network only
+    ports:
+      - "127.0.0.1:${PORT_CACHE:-6379}:6379"
+    volumes:
+      - cache_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Message Broker (RabbitMQ implementation)
+  # SERVICE NAME: message-broker (can be changed by renaming the service)
+  message-broker:
+    image: rabbitmq:3-management-alpine
+    container_name: ${CONTAINER_MESSAGE_BROKER_NAME:-devhunt-messaging-rabbitmq}
+    environment:
+      # SECURITY: RABBITMQ_DEFAULT_PASS MUST be set via environment variable - no default for production
+      # For development only, you can set a default in your local .env file
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-devhunt}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS environment variable is required}
+    # SECURITY: Ports exposed only for local development
+    # In production, remove port mappings - use internal Docker network only
+    # Management UI (15672) should be removed in production or protected with authentication
+    ports:
+      - "127.0.0.1:${PORT_MESSAGE_BROKER:-5672}:5672"
+      - "127.0.0.1:${PORT_MESSAGE_BROKER_MGMT:-15672}:15672"
+    volumes:
+      - message_broker_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Object Storage (SeaweedFS - Apache 2.0 License, FREE alternative to MinIO)
+  # SeaweedFS is S3-compatible, distributed, and fully open source
+  # Apache 2.0 license - FREE for commercial use
+  # SERVICE NAME: object-storage (can be changed by renaming the service)
+  # Initial setup (after first start):
+  # 1. Access S3 API: http://localhost:${PORT_OBJECT_STORAGE_S3:-8333}
+  # 2. Default credentials: any/any (change in production!)
+  # 3. Configure buckets via S3 API or Filer UI
+  object-storage:
+    image: chrislusf/seaweedfs:latest
+    container_name: ${CONTAINER_OBJECT_STORAGE_NAME:-devhunt-storage-seaweedfs}
+    environment:
+      - WEED_MASTER_VOLUME_GROWTH_COPY_1=1
+      - WEED_MASTER_VOLUME_GROWTH_COPY_2=2
+      - WEED_MASTER_VOLUME_GROWTH_COPY_OTHER=1
+      # S3 IAM credentials - for development you can use "any/any"
+      # In production, configure via filer UI or API after startup
+      - S3_ACCESS_KEY_ID=${OBJECT_STORAGE_ACCESS_KEY:-devhunt_access_key_dev_123456789012}
+      - S3_SECRET_ACCESS_KEY=${OBJECT_STORAGE_SECRET_KEY:-devhunt_secret_key_dev_1234567890123456}
+    command:
+      - "server"
+      - "-filer"
+      - "-s3"
+      - "-s3.port=${PORT_OBJECT_STORAGE_S3:-8333}"
+      - "-s3.allowEmptyFolder=true"
+      - "-s3.allowDeleteBucketNotEmpty=true"
+      - "-s3.config=/etc/seaweedfs/s3.json"
+      - "-filer.port=${PORT_OBJECT_STORAGE_FILER:-8888}"
+      - "-dir=/data"
+    # NOTE: S3 port (8333) exposed externally for public image access
+    # Filer and Volume ports remain localhost-only for security
+    ports:
+      - "${PORT_OBJECT_STORAGE_S3:-8333}:${PORT_OBJECT_STORAGE_S3:-8333}"  # S3 API endpoint (public for images)
+      - "127.0.0.1:${PORT_OBJECT_STORAGE_FILER:-8888}:${PORT_OBJECT_STORAGE_FILER:-8888}"  # Filer UI
+      - "127.0.0.1:${PORT_OBJECT_STORAGE_VOLUME:-8080}:${PORT_OBJECT_STORAGE_VOLUME:-8080}"  # Volume server
+    volumes:
+      - object_storage_data:/data
+      - ./seaweedfs/s3.json:/etc/seaweedfs/s3.json:ro
+    user: "1000:1000"  # Run as this user inside the container
+    healthcheck:
+      # Check that TCP port 8333 (S3 endpoint) is reachable for the volume server
+      test: ["CMD", "nc", "-z", "127.0.0.1", "8333"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+
+  # Mailpit - Email testing tool for developers
+  # SERVICE NAME: mailpit
+  # SMTP: 1025 (no auth)
+
+  # Database Migrator (runs migrations before services start)
+  # SERVICE NAME: db-migrator (can be changed by renaming the service)
+  db-migrator:
+    container_name: ${CONTAINER_DB_MIGRATOR_NAME:-devhunt-database-migrator}
+    build:
+      context: .
+      dockerfile: ./DevHunt.DatabaseMigrator/Dockerfile
+    environment:
+      # SECURITY: All secrets MUST be provided via environment variables
+      # For development, create .env file or use docker-compose.override.yml
+      # NOTE: Host is 'db' (service name) and Port is 5432 inside Docker network
+      # ${POSTGRES_HOST} from .env might contain unresolved variables, so use 'db' directly
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-devhunt_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required};Pooling=true;MinPoolSize=1;MaxPoolSize=5;Timeout=60;Command Timeout=120"
+      ASPNETCORE_ENVIRONMENT: "Development"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"  # Run once and exit
+
+  # Auth Service
+  # SERVICE NAME: auth-service (can be changed by renaming the service)
+  auth-service:
+    container_name: ${CONTAINER_AUTH_NAME:-devhunt-auth-service}
+    build:
+      context: .
+      dockerfile: ./DevHunt.AuthService/Dockerfile
+    ports:
+      - "${PORT_AUTH:-7001}:${INTERNAL_PORT_AUTH:-8080}"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 768M
+        reservations:
+          memory: 256M
+    environment:
+      # SECURITY: All secrets MUST be provided via environment variables
+      # For development, create .env file or use docker-compose.override.yml
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-devhunt_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required};Pooling=true;MinPoolSize=2;MaxPoolSize=50;Connection Idle Lifetime=300;Timeout=30;Command Timeout=30"
+      ConnectionStrings__RedisConnection: "cache-service:6379"
+      Jwt__Key: ${JWT_KEY:?JWT_KEY environment variable is required (minimum 32 characters)}
+      Jwt__Issuer: ${JWT_ISSUER:-DevHunt.AuthService}
+      Jwt__Audience: ${JWT_AUDIENCE:-DevHunt.CoreApi}
+      Authentication__Google__ClientId: ${AUTHENTICATION__GOOGLE__CLIENTID:-}
+      Authentication__Google__ClientSecret: ${AUTHENTICATION__GOOGLE__CLIENTSECRET:-}
+      Authentication__GitHub__ClientId: ${AUTHENTICATION__GITHUB__CLIENTID:-}
+      Authentication__GitHub__ClientSecret: ${AUTHENTICATION__GITHUB__CLIENTSECRET:-}
+      Email__SmtpHost: ${EMAIL__SMTPHOST:-mailpit}
+      Email__SmtpPort: ${EMAIL__SMTPPORT:-1025}
+      Email__SmtpUser: ${EMAIL__SMTPUSER:-}
+      Email__SmtpPass: ${EMAIL__SMTPPASS:-}
+      Email__SmtpUseSsl: ${EMAIL__SMTPUSESSL:-false}
+      Email__FromEmail: ${EMAIL__FROMEMAIL:-no-reply@devhunt.local}
+      Email__FromName: ${EMAIL__FROMNAME:-DevHunt}
+      Frontend__BaseUrl: ${FRONTEND__BASEURL:-http://localhost:${PORT_FRONTEND:-3000}}
+      Cors__AllowedOrigins__0: "http://localhost:3000"
+      Cors__AllowedOrigins__1: "http://localhost:3001"
+      OpenObserve__OtlpTracesEndpoint: "http://openobserve:5080/api/default/v1/traces"
+      OpenObserve__LogsEndpoint: "http://openobserve:5080/api/default/logs/_json"
+      OpenObserve__User: "${OPENOBSERVE_ROOT_USER:-admin@devhunt.local}"
+      OpenObserve__Password: "${OPENOBSERVE_ROOT_PASSWORD:-ChangeMe123!}"
+      ASPNETCORE_URLS: "http://+:${INTERNAL_PORT_AUTH:-8080}"
+      ASPNETCORE_ENVIRONMENT: "Development"
+    volumes:
+      - dp_keys:/app/.aspnet/DataProtection-Keys
+    depends_on:
+      db:
+        condition: service_healthy
+      db-migrator:
+        condition: service_completed_successfully
+      cache-service:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:${INTERNAL_PORT_AUTH:-8080}/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Core API
+  # SERVICE NAME: core-api (can be changed by renaming the service)
+  core-api:
+    container_name: ${CONTAINER_CORE_NAME:-devhunt-core-api}
+    build:
+      context: .
+      dockerfile: ./DevHunt.CoreApi/Dockerfile
+    ports:
+      - "${PORT_CORE_API:-7002}:${INTERNAL_PORT_CORE_API:-8080}"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1536M
+        reservations:
+          memory: 512M
+    environment:
+      # SECURITY: All secrets MUST be provided via environment variables
+      # For development, create .env file or use docker-compose.override.yml
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-devhunt_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required};Pooling=true;MinPoolSize=5;MaxPoolSize=100;Connection Idle Lifetime=300;Timeout=30;Command Timeout=30"
+      ConnectionStrings__ReadOnlyConnection: "Host=db;Port=5432;Database=${POSTGRES_DB:-devhunt_db};Username=${POSTGRES_USER:-postgres};Password=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required};Pooling=true;MinPoolSize=2;MaxPoolSize=50;Connection Idle Lifetime=300;Timeout=30;Command Timeout=30"
+      ConnectionStrings__RedisConnection: "cache-service:6379"
+      Jwt__Key: ${JWT_KEY:?JWT_KEY environment variable is required (minimum 32 characters)}
+      Jwt__Issuer: ${JWT_ISSUER:-DevHunt.AuthService}
+      Jwt__Audience: ${JWT_AUDIENCE:-DevHunt.CoreApi}
+      RabbitMQ__ConnectionString: "amqp://${RABBITMQ_DEFAULT_USER:-devhunt}:${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS environment variable is required}@${RABBITMQ_HOST:-message-broker}:${RABBITMQ_PORT:-5672}"
+      RabbitMQ__ExchangeName: "devhunt.events"
+      ObjectStorage__Endpoint: "http://${OBJECT_STORAGE_HOST:-object-storage}:${OBJECT_STORAGE_PORT:-8333}"
+      ObjectStorage__PublicEndpoint: "${OBJECT_STORAGE_PUBLIC_ENDPOINT:-http://localhost:${PORT_OBJECT_STORAGE_S3:-8333}}"
+      ObjectStorage__AccessKey: ${OBJECT_STORAGE_ACCESS_KEY:-devhunt_access_key_dev_123456789012}
+      ObjectStorage__SecretKey: ${OBJECT_STORAGE_SECRET_KEY:-devhunt_secret_key_dev_1234567890123456}
+      ObjectStorage__Region: ${OBJECT_STORAGE_REGION:-us-east-1}
+      Prometheus__Endpoint: "/metrics"
+      Encryption__Key: ${ENCRYPTION_KEY:?ENCRYPTION_KEY environment variable is required (exactly 32 characters)}
+      Encryption__IV: ${ENCRYPTION_IV:?ENCRYPTION_IV environment variable is required (exactly 16 characters)}
+      MLService__BaseUrl: "http://ml-service:${INTERNAL_PORT_ML:-8000}"
+      IntegrationGateway__BaseUrl: "http://integration-gateway:${INTERNAL_PORT_INTEGRATION_GATEWAY:-5002}"
+      NotificationService__BaseUrl: "http://notification-service:${INTERNAL_PORT_NOTIFICATION:-5003}"
+      OpenObserve__OtlpTracesEndpoint: "http://openobserve:5080/api/default/v1/traces"
+      OpenObserve__LogsEndpoint: "http://openobserve:5080/api/default/logs/_json"
+      OpenObserve__User: "${OPENOBSERVE_ROOT_USER:-admin@devhunt.local}"
+      OpenObserve__Password: "${OPENOBSERVE_ROOT_PASSWORD:-ChangeMe123!}"
+      API_PUBLIC_URL: "${API_PUBLIC_URL:-http://localhost:${PORT_CORE_API:-7002}}"
+      FRONTEND_BASE_URL: "${FRONTEND_BASE_URL:-http://localhost:${PORT_FRONTEND:-3000}}"
+      ASPNETCORE_URLS: "http://+:${INTERNAL_PORT_CORE_API:-8080}"
+      ASPNETCORE_ENVIRONMENT: "Development"
+    volumes:
+      - dp_keys:/app/.aspnet/DataProtection-Keys
+    depends_on:
+      db:
+        condition: service_healthy
+      db-migrator:
+        condition: service_completed_successfully
+      cache-service:
+        condition: service_healthy
+      message-broker:
+        condition: service_healthy
+      object-storage:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:${INTERNAL_PORT_CORE_API:-8080}/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ML Service (Python/FastAPI)
+  # SERVICE NAME: ml-service (can be changed by renaming the service)
+  ml-service:
+    container_name: ${CONTAINER_ML_NAME:-devhunt-ml-service}
+    build:
+      context: ./ml-service
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT_ML:-8000}:${INTERNAL_PORT_ML:-8000}"
+    environment:
+      # SECURITY: All secrets MUST be provided via environment variables
+      # For development, create .env file or use docker-compose.override.yml
+      DATABASE_URL: "postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}@db:5432/${POSTGRES_DB:-devhunt_db}"
+      LOG_LEVEL: "INFO"
+      RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER:-devhunt}:${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS environment variable is required}@${SERVICE_MESSAGE_BROKER_NAME:-message-broker}:${PORT_MESSAGE_BROKER:-5672}"
+      RABBITMQ_EXCHANGE_NAME: "${RABBITMQ__EXCHANGENAME:-devhunt.events}"
+      ML_QUEUE: "${ML_QUEUE:-devhunt.ml.recommendations}"
+      ASPNETCORE_ENVIRONMENT: "Development"
+      OTEL_SERVICE_NAME: "ml-service"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://openobserve:5080/api/default"
+      OPENOBSERVE_USER: "${OPENOBSERVE_ROOT_USER:-admin@devhunt.local}"
+      OPENOBSERVE_PASSWORD: "${OPENOBSERVE_ROOT_PASSWORD:-ChangeMe123!}"
+      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
+      GROQ_API_KEY: "${GROQ_API_KEY:-}"
+      AI_PROVIDER: "${AI_PROVIDER:-groq}"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # Use httpx which is already in requirements.txt (requests is not installed)
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:${INTERNAL_PORT_ML:-8000}/health').raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Notification Service (Node.js)
+  # SERVICE NAME: notification-service (can be changed by renaming the service)
+  notification-service:
+    container_name: ${CONTAINER_NOTIFICATION_NAME:-devhunt-notification-service}
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    ports:
+      - "${PORT_NOTIFICATION:-5003}:${INTERNAL_PORT_NOTIFICATION:-5003}"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          memory: 256M
+    environment:
+      PORT: ${INTERNAL_PORT_NOTIFICATION:-5003}
+      NODE_ENV: "Development"
+      EMAIL_PROVIDER: "smtp"
+      SMTP_HOST: "${SMTP_HOST:-mailpit}"
+      SMTP_PORT: "${SMTP_PORT:-1025}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      FROM_EMAIL: "noreply@devhunt.com"
+      FROM_NAME: "DevHunt"
+      RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@${SERVICE_MESSAGE_BROKER_NAME}:${PORT_MESSAGE_BROKER}"
+      RABBITMQ_ENABLED: "true"
+      RABBITMQ_EXCHANGE_NAME: "${RABBITMQ__EXCHANGENAME:-devhunt.events}"
+      NOTIFICATION_QUEUE: "${RABBITMQ__NOTIFICATIONQUEUE:-devhunt.notifications}"
+      LOG_LEVEL: "info"
+      OPENOBSERVE_LOG_ENABLED: "true"
+      OPENOBSERVE_LOG_URL: "http://openobserve:5080/api/default/logs/_json"
+      OTEL_SERVICE_NAME: "notification-service"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://openobserve:5080/api/default"
+      OPENOBSERVE_USER: "${OPENOBSERVE_ROOT_USER:-admin@devhunt.local}"
+      OPENOBSERVE_PASSWORD: "${OPENOBSERVE_ROOT_PASSWORD:-ChangeMe123!}"
+      RATE_LIMIT_REDIS_URL: "${RATE_LIMIT_REDIS_URL:-redis://cache-service:6379/0}"
+      ALERT_ADMIN_EMAIL: "${ALERT_ADMIN_EMAIL:-admin@devhunt.local}"
+      SMTP_FROM: "${SMTP_FROM:-noreply@devhunt.local}"
+    depends_on:
+      message-broker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:${INTERNAL_PORT_NOTIFICATION:-5003}/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Integration Gateway (Node.js)
+  # SERVICE NAME: integration-gateway (can be changed by renaming the service)
+  integration-gateway:
+    container_name: ${CONTAINER_INTEGRATION_GATEWAY_NAME:-devhunt-integration-gateway}
+    build:
+      context: .
+      dockerfile: integration-gateway/Dockerfile
+    ports:
+      - "${PORT_INTEGRATION_GATEWAY:-5002}:${INTERNAL_PORT_INTEGRATION_GATEWAY:-5002}"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          memory: 256M
+    environment:
+      PORT: ${INTERNAL_PORT_INTEGRATION_GATEWAY:-5002}
+      NODE_ENV: "Development"
+      GITHUB_CLIENT_ID: "${GITHUB_CLIENT_ID:-}"
+      GITHUB_CLIENT_SECRET: "${GITHUB_CLIENT_SECRET:-}"
+      GITHUB_WEBHOOK_SECRET: "${GITHUB_WEBHOOK_SECRET:-}"
+      GITLAB_CLIENT_ID: "${GITLAB_CLIENT_ID:-}"
+      GITLAB_CLIENT_SECRET: "${GITLAB_CLIENT_SECRET:-}"
+      GITLAB_WEBHOOK_SECRET: "${GITLAB_WEBHOOK_SECRET:-}"
+      GITLAB_AUTH_URL: "https://gitlab.com/oauth/authorize"
+      GITLAB_TOKEN_URL: "https://gitlab.com/oauth/token"
+      GITLAB_USER_INFO_URL: "https://gitlab.com/api/v4/user"
+      OAUTH_REDIRECT_BASE: "${OAUTH_REDIRECT_BASE:-http://localhost:${PORT_CORE_API:-7002}/api/integrations}"
+      LOG_LEVEL: "info"
+      OPENOBSERVE_LOG_ENABLED: "true"
+      OPENOBSERVE_LOG_URL: "http://openobserve:5080/api/default/logs/_json"
+      OTEL_SERVICE_NAME: "integration-gateway"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://openobserve:5080/api/default"
+      OPENOBSERVE_USER: "${OPENOBSERVE_ROOT_USER:-admin@devhunt.local}"
+      OPENOBSERVE_PASSWORD: "${OPENOBSERVE_ROOT_PASSWORD:-ChangeMe123!}"
+      RATE_LIMIT_REDIS_URL: "${RATE_LIMIT_REDIS_URL:-redis://cache-service:6379/0}"
+      RABBITMQ_URL: "amqp://${RABBITMQ_DEFAULT_USER}:${RABBITMQ_DEFAULT_PASS}@${SERVICE_MESSAGE_BROKER_NAME}:${PORT_MESSAGE_BROKER}"
+      RABBITMQ_EXCHANGE_NAME: "${RABBITMQ__EXCHANGENAME:-devhunt.events}"
+      INTEGRATION_QUEUE: "${RABBITMQ__INTEGRATIONQUEUE:-devhunt.integrations}"
+      CORE_API_URL: "http://core-api:${INTERNAL_PORT_CORE_API:-8080}"
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY:-dev-internal-key-for-local-development-only}"
+      CODE_ANALYZER_URL: "http://code-analyzer:8090"
+      ANALYZER_API_SECRET: "${ANALYZER_API_SECRET:-}"
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:${INTERNAL_PORT_INTEGRATION_GATEWAY:-5002}/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # API Gateway / Reverse Proxy (Nginx implementation)
+  # SERVICE NAME: api-gateway (can be changed by renaming the service)
+  api-gateway:
+    container_name: ${CONTAINER_API_GATEWAY_NAME:-devhunt-api-gateway-nginx}
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT_API_GATEWAY:-80}:${INTERNAL_PORT_API_GATEWAY:-8080}"
+      - "${PORT_API_GATEWAY_HTTPS:-443}:${INTERNAL_PORT_API_GATEWAY_HTTPS:-8443}"
+    # volumes:
+      # Only mount SSL certificates if they exist (for production Let's Encrypt)
+      # For development, certificates are created in Dockerfile
+      # Uncomment if you have Let's Encrypt certificates:
+      # - ./nginx/ssl:/etc/nginx/ssl:ro
+      # - ./nginx/certbot:/var/www/certbot:ro
+    depends_on:
+      - frontend
+      - auth-service
+      - core-api
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Frontend (Next.js)
+  # SERVICE NAME: frontend (can be changed by renaming the service)
+  frontend:
+    container_name: ${CONTAINER_FRONTEND_NAME:-devhunt-frontend-web}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    # Expose through api-gateway in production, direct access for dev
+    ports:
+      - "${PORT_FRONTEND:-3000}:${INTERNAL_PORT_FRONTEND:-3000}"
+    environment:
+      # Use proxy mode when in Docker - frontend proxies API calls through Next.js server
+      NEXT_PUBLIC_USE_PROXY: "true"
+      DOCKER_ENV: "true"
+      # Disable Next.js telemetry to avoid permission issues
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Browser uses Next.js proxy endpoints (no localhost ports needed)
+      NEXT_PUBLIC_API_URL: "/api/proxy-core"
+      NEXT_PUBLIC_AUTH_URL: "/api/proxy-auth"
+      NEXT_PUBLIC_AUTH_API_URL: "/api/proxy-auth"
+      # WebSocket URL — empty = relative path through nginx proxy
+      NEXT_PUBLIC_WS_URL: ""
+      NEXT_PUBLIC_APP_URL: "${NEXT_PUBLIC_APP_URL:-http://localhost:${PORT_FRONTEND:-3000}}"
+      NEXT_PUBLIC_USE_MOCKS: "false"
+      NEXT_PUBLIC_USE_API: "true"
+      # NextAuth Configuration
+      AUTH_TRUST_HOST: "true"
+      AUTH_SECRET: "${AUTH_SECRET:-devhunt-local-secret}"
+      AUTH_URL: "${NEXT_PUBLIC_APP_URL:-http://localhost:3000}"
+      AUTH_SERVICE_URL: "http://auth-service:8080" # Internal URL for Auth Service
+    depends_on:
+      core-api:
+        condition: service_healthy
+      auth-service:
+        condition: service_healthy
+    healthcheck:
+      # Check if Next.js server is responding - use wget as it's simpler and more reliable
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:3000/pl || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # OpenSearch and Jaeger REMOVED - using OpenObserve for logs and traces instead
+
+  # Prometheus, Grafana and exporters REMOVED - using OpenObserve instead
+
+  # OpenObserve Alerts Init (runs once after OpenObserve starts)
+  openobserve-init:
+    image: alpine:3.19
+    container_name: devhunt-openobserve-init
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache curl && /bin/sh /scripts/init-alerts.sh"]
+    environment:
+      OPENOBSERVE_URL: "http://openobserve:5080"
+      OPENOBSERVE_USER: "${OPENOBSERVE_ROOT_USER:-admin@devhunt.local}"
+      OPENOBSERVE_PASSWORD: "${OPENOBSERVE_ROOT_PASSWORD:-ChangeMe123!}"
+      ALERT_EMAIL: "${SMTP_USER:-}"
+    volumes:
+      - ./monitoring/openobserve/init-alerts.sh:/scripts/init-alerts.sh:ro
+    depends_on:
+      openobserve:
+        condition: service_started
+    restart: "no"
+
+  # OpenObserve - unified observability (metrics/logs/traces)
+  # Replaces: Prometheus, Grafana, Jaeger, OpenSearch
+  # UI: http://localhost:5080 (credentials: see OPENOBSERVE_ROOT_USER / OPENOBSERVE_ROOT_PASSWORD in .env)
+  openobserve:
+    image: public.ecr.aws/zinclabs/openobserve:latest
+    container_name: ${CONTAINER_OPENOBSERVE_NAME:-devhunt-observability-openobserve}
+    environment:
+      # Auth
+      ZO_ROOT_USER_EMAIL: ${OPENOBSERVE_ROOT_USER:-admin@devhunt.local}
+      ZO_ROOT_USER_PASSWORD: ${OPENOBSERVE_ROOT_PASSWORD:-ChangeMe123!}
+      # Storage
+      ZO_DATA_DIR: /data
+      ZO_DATA_RETENTION_DAYS: "30"
+      ZO_COMPACT_DATA_RETENTION_DAYS: "7"
+      # SMTP for alerts
+      ZO_SMTP_HOST: "${SMTP_HOST:-smtp.gmail.com}"
+      ZO_SMTP_PORT: "${SMTP_PORT:-587}"
+      ZO_SMTP_USER_NAME: "${SMTP_USER:-}"
+      ZO_SMTP_PASSWORD: "${SMTP_PASSWORD:-}"
+      ZO_SMTP_FROM_EMAIL: "${SMTP_USER:-noreply@devhunt.local}"
+      ZO_SMTP_ENCRYPTION: "starttls"
+      # Telemetry endpoints
+      ZO_TELEMETRY_URL: ""
+      # Enable Prometheus metrics scraping
+      ZO_PROMETHEUS_ENABLED: "true"
+      # OpenObserve is the observability backend itself; disable self-tracing
+      # (requires ZO_TRACING_GRPC_ADDR or ZO_TRACING_HTTP_ADDR when enabled)
+      ZO_TRACING_ENABLED: "false"
+      # Performance
+      ZO_HTTP_PORT: "5080"
+      ZO_INGEST_ALLOWED_UPTO: "24"
+      ZO_LOGS_DISK_SIZE_MB: "1024"
+    ports:
+      - "127.0.0.1:${PORT_OPENOBSERVE_UI:-5080}:5080"
+    volumes:
+      - openobserve_data:/data
+      - ./monitoring/openobserve/scrape.yml:/etc/openobserve/scrape.yml:ro
+    healthcheck:
+      disable: true
+
+  # Backup Service (automated PostgreSQL backups)
+  # SERVICE NAME: backup-service (can be changed by renaming the service)
+  backup-service:
+    image: postgres:16-alpine
+    container_name: ${CONTAINER_BACKUP_NAME:-devhunt-backup-postgres}
+    environment:
+      # SECURITY: All secrets MUST be provided via environment variables
+      # For development, create .env file or use docker-compose.override.yml
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
+      POSTGRES_DB: ${POSTGRES_DB:-devhunt_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      PGHOST: db
+      PGPORT: 5432
+      PGPASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD environment variable is required}
+    command:
+      - /bin/sh
+      - -c
+      - |
+        echo 'Starting backup service...'
+        while true; do
+          echo "[$$(date +'%Y-%m-%d %H:%M:%S')] Starting backup..."
+          pg_dump -h db -U postgres -d devhunt_db -F c -f /backups/db-$$(date +%Y%m%d-%H%M%S).dump
+          if [ $$? -eq 0 ]; then
+            echo "[$$(date +'%Y-%m-%d %H:%M:%S')] Backup completed successfully"
+            find /backups -name '*.dump' -mtime +7 -delete
+            echo "[$$(date +'%Y-%m-%d %H:%M:%S')] Cleaned old backups"
+          else
+            echo "[$$(date +'%Y-%m-%d %H:%M:%S')] Backup failed!"
+          fi
+          sleep 86400
+        done
+    volumes:
+      - backup_data:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Code Analyzer Service (Python)
+  # SERVICE NAME: code-analyzer
+  # HTTP API for static code analysis of project repositories
+  code-analyzer:
+    container_name: ${CONTAINER_ANALYZER_NAME:-devhunt-code-analyzer}
+    build:
+      context: ./DevHunt.Analyzer
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:${PORT_ANALYZER:-8090}:8090"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
+        reservations:
+          memory: 128M
+    environment:
+      ANALYZER_HOST: "0.0.0.0"
+      ANALYZER_PORT: "8090"
+      ANALYZER_MAX_REPO_MB: "200"
+      ANALYZER_CLONE_TIMEOUT: "120"
+      ANALYZER_API_SECRET: "${ANALYZER_API_SECRET:-}"
+      ANALYZER_AUTH_DISABLED: "${ANALYZER_AUTH_DISABLED:-true}"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+
+volumes:
+  mailpit_data:
+  postgres_data:
+  cache_data:
+  message_broker_data:
+  object_storage_data:
+  object_storage_meta:
+  backup_data:
+  openobserve_data:
+  dp_keys:

@@ -1,0 +1,20 @@
+# DevHunt Analyzer Configuration
+
+# Rules to disable (by rule_id)
+disabled_rules: []
+
+# File patterns to exclude from analysis
+exclude_patterns:
+  - "*.generated.cs"
+  - "*.Designer.cs"
+  - "Migrations/*.cs"
+  - "*.test.ts"
+  - "*.test.tsx"
+  - "*.spec.ts"
+  - "*.spec.tsx"
+
+# Number of parallel workers
+workers: 4
+
+# Skip files larger than this (KB)
+max_file_size_kb: 500

@@ -1,0 +1,21 @@
+services:
+  documentation:
+    build:
+      context: .
+      dockerfile: ./documentation/Dockerfile
+    image: devhunt-documentation:latest
+    container_name: ${CONTAINER_DOCUMENTATION_NAME:-devhunt-documentation}
+    environment:
+      DOCS_BASIC_AUTH_USERNAME: ${DOCS_BASIC_AUTH_USERNAME:-}
+      DOCS_BASIC_AUTH_PASSWORD: ${DOCS_BASIC_AUTH_PASSWORD:-}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:-}
+    ports:
+      - "${PORT_DOCUMENTATION:-9000}:80"
+    healthcheck:
+      test: ["CMD", "docs-healthcheck"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped

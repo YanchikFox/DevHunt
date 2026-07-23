@@ -1,0 +1,131 @@
+{
+  "title": "DevHunt Services Overview",
+  "description": "Realtime view on Integration Gateway and Notification Service metrics ingested via OTLP/Prometheus.",
+  "panels": [
+    {
+      "id": "ig_request_rate",
+      "type": "timeseries",
+      "title": "Integration Gateway - Request Rate",
+      "unit": "req/s",
+      "targets": [
+        {
+          "query": "sum(rate(integration_gateway_http_requests_total[5m]))",
+          "legend": "All requests"
+        },
+        {
+          "query": "sum(rate(integration_gateway_http_requests_total{status_code=~\"5..\"}[5m]))",
+          "legend": "5xx errors"
+        }
+      ]
+    },
+    {
+      "id": "ig_latency",
+      "type": "timeseries",
+      "title": "Integration Gateway - Latency (p95)",
+      "unit": "seconds",
+      "targets": [
+        {
+          "query": "histogram_quantile(0.95, sum(rate(integration_gateway_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legend": "p95 latency"
+        }
+      ]
+    },
+    {
+      "id": "ig_events",
+      "type": "stat-table",
+      "title": "Integration Gateway Event Outcomes",
+      "description": "Success, retried and dropped events processed from RabbitMQ.",
+      "targets": [
+        {
+          "query": "sum(rate(integration_gateway_event_messages_total{status=\"processed\"}[5m]))",
+          "legend": "processed req/s"
+        },
+        {
+          "query": "sum(rate(integration_gateway_event_messages_total{status=\"retried\"}[5m]))",
+          "legend": "retried req/s"
+        },
+        {
+          "query": "sum(rate(integration_gateway_event_messages_total{status=\"dropped\"}[5m]))",
+          "legend": "dropped req/s"
+        }
+      ]
+    },
+    {
+      "id": "ig_throttle",
+      "type": "timeseries",
+      "title": "Integration Gateway Throttle",
+      "targets": [
+        {
+          "query": "integration_gateway_throttle_active_requests",
+          "legend": "active requests"
+        },
+        {
+          "query": "integration_gateway_throttle_queue_length",
+          "legend": "queue length"
+        }
+      ]
+    },
+    {
+      "id": "notification_request_rate",
+      "type": "timeseries",
+      "title": "Notification Service - Request Rate",
+      "unit": "req/s",
+      "targets": [
+        {
+          "query": "sum(rate(notification_service_http_requests_total[5m]))",
+          "legend": "All requests"
+        },
+        {
+          "query": "sum(rate(notification_service_http_requests_total{status_code=~\"5..\"}[5m]))",
+          "legend": "5xx errors"
+        }
+      ]
+    },
+    {
+      "id": "notification_latency",
+      "type": "timeseries",
+      "title": "Notification Service - Latency (p95)",
+      "unit": "seconds",
+      "targets": [
+        {
+          "query": "histogram_quantile(0.95, sum(rate(notification_service_http_request_duration_seconds_bucket[5m])) by (le))",
+          "legend": "p95 latency"
+        }
+      ]
+    },
+    {
+      "id": "notification_events",
+      "type": "stat-table",
+      "title": "Notification Events Outcome",
+      "targets": [
+        {
+          "query": "sum(rate(notification_service_event_messages_total{status=\"processed\"}[5m]))",
+          "legend": "processed req/s"
+        },
+        {
+          "query": "sum(rate(notification_service_event_messages_total{status=\"retried\"}[5m]))",
+          "legend": "retried req/s"
+        },
+        {
+          "query": "sum(rate(notification_service_event_messages_total{status=\"dropped\"}[5m]))",
+          "legend": "dropped req/s"
+        }
+      ]
+    },
+    {
+      "id": "notification_throttle",
+      "type": "timeseries",
+      "title": "Notification Service Throttle",
+      "targets": [
+        {
+          "query": "notification_service_throttle_active_requests",
+          "legend": "active requests"
+        },
+        {
+          "query": "notification_service_throttle_queue_length",
+          "legend": "queue length"
+        }
+      ]
+    }
+  ]
+}

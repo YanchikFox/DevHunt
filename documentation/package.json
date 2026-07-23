@@ -1,0 +1,67 @@
+{
+  "name": "documentation",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "docusaurus": "docusaurus",
+    "start": "docusaurus start",
+    "prebuild": "npm run clear",
+    "build": "docusaurus build",
+    "prepare:docs": "npm run gen:swagger && npm run gen:mlapi && node ./scripts/prepare-docs.js && npm run gen:openapi && node ./scripts/postprocess-openapi.js && npm run gen:typedoc && npm run gen:docfx && npm run gen:diagrams && node ./scripts/sync-swagger-ui.js && node ./scripts/validate-generated-docs.js",
+    "build:site": "npm run prepare:docs && docusaurus build",
+    "gen:openapi": "docusaurus gen-api-docs coreapi --plugin-id api && docusaurus gen-api-docs authapi --plugin-id api && docusaurus gen-api-docs mlapi --plugin-id api",
+    "gen:typedoc": "node ./scripts/gen-typedoc.js",
+    "gen:swagger": "node ./scripts/gen-swagger.js",
+    "gen:mlapi": "node ./scripts/gen-mlapi.js",
+    "gen:docfx": "node ./scripts/gen-docfx.js",
+    "gen:diagrams": "node ./scripts/gen-diagrams.js",
+    "build:docker": "cd .. && docker build -f documentation/Dockerfile -t devhunt-documentation:latest .",
+    "up:docs": "cd .. && docker compose -f docker-compose.docs.yml up -d documentation",
+    "docs:auto": "cd .. && docker compose -f docker-compose.docs.yml up -d --build documentation",
+    "swizzle": "docusaurus swizzle",
+    "deploy": "docusaurus deploy",
+    "clear": "docusaurus clear",
+    "serve": "docusaurus serve",
+    "write-translations": "docusaurus write-translations",
+    "write-heading-ids": "docusaurus write-heading-ids",
+    "typecheck": "tsc"
+  },
+  "dependencies": {
+    "@docusaurus/core": "3.9.2",
+    "@docusaurus/preset-classic": "3.9.2",
+    "@docusaurus/theme-mermaid": "3.9.2",
+    "@mdx-js/react": "^3.0.0",
+    "clsx": "^2.0.0",
+    "docusaurus-plugin-openapi-docs": "^4.5.1",
+    "docusaurus-plugin-typedoc": "^1.4.2",
+    "docusaurus-theme-openapi-docs": "^4.5.1",
+    "prism-react-renderer": "^2.3.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "stream-browserify": "^3.0.0",
+    "swagger-ui-dist": "^5.30.3",
+    "typedoc": "^0.28.15",
+    "typedoc-plugin-markdown": "^4.9.0"
+  },
+  "devDependencies": {
+    "@docusaurus/module-type-aliases": "3.9.2",
+    "@docusaurus/tsconfig": "3.9.2",
+    "@docusaurus/types": "3.9.2",
+    "typescript": "~5.6.2"
+  },
+  "browserslist": {
+    "production": [
+      ">0.5%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 3 chrome version",
+      "last 3 firefox version",
+      "last 5 safari version"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0"
+  }
+}

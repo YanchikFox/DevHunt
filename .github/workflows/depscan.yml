@@ -1,0 +1,55 @@
+name: Dependency Scan
+
+on:
+  # Runs manually only — OWASP downloads the NVD database (~2 GB, ~20 min).
+  # Trivy + pr-checks.yml cover fast CVE scanning on every PR.
+  # Use this for a thorough pre-release or weekly audit.
+  workflow_dispatch: # Manual trigger
+    inputs:
+      verbose_logs:
+        description: 'Upload job logs as artifact'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      
+      - name: Run OWASP Dependency Check using Docker
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          {
+            docker run --rm \
+              -v "${{ github.workspace }}:/src" \
+              -v "${{ github.workspace }}/.dependency-check:/usr/share/dependency-check/data" \
+              owasp/dependency-check:latest \
+              --scan /src \
+              --format "ALL" \
+              --format "SARIF" \
+              --out /src/dependency-check-report \
+              --failOnCVSS 7 \
+              --enableRetired \
+              --enableExperimental || true
+          } 2>&1 | tee ${{ github.workspace }}/logs/depscan.log
+        continue-on-error: true
+
+      - name: Upload Dependency Check Report
+        uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: dependency-check-report
+          path: dependency-check-report/
+          retention-days: 30
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: depscan-logs
+          path: ${{ github.workspace }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7

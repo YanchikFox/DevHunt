@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DevHunt Swagger UI</title>
+    <link rel="stylesheet" href="./swagger-ui.css" />
+    <style>
+      body {
+        margin: 0;
+        background: #f7f7f8;
+      }
+
+      .topbar {
+        display: none;
+      }
+
+      .swagger-ui .info {
+        margin: 32px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="./swagger-ui-bundle.js"></script>
+    <script src="./swagger-ui-standalone-preset.js"></script>
+    <script>
+      window.addEventListener('load', function () {
+        window.ui = SwaggerUIBundle({
+          dom_id: '#swagger-ui',
+          urls: [
+            {name: 'Core API', url: '/api/swagger.json'},
+            {name: 'Auth Service API', url: '/api/auth-swagger.json'},
+            {name: 'ML Service API', url: '/api/ml-openapi.json'},
+          ],
+          urlsPrimaryName: 'Core API',
+          deepLinking: true,
+          displayOperationId: false,
+          filter: true,
+          persistAuthorization: true,
+          tryItOutEnabled: true,
+          presets: [
+            SwaggerUIBundle.presets.apis,
+            SwaggerUIStandalonePreset,
+          ],
+          layout: 'StandaloneLayout',
+        });
+      });
+    </script>
+  </body>
+</html>

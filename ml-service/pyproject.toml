@@ -1,0 +1,46 @@
+[tool.poetry]
+name = "devhunt-ml-service"
+version = "1.0.0"
+description = "DevHunt ML Service - Recommendation Engine (FastAPI)"
+authors = ["DevHunt Team"]
+readme = "README.md"
+packages = [{include = "main"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.124.0"
+uvicorn = {extras = ["standard"], version = "^0.32.0"}
+asyncpg = "^0.30.0"
+pydantic = "^2.9.2"
+python-dotenv = "^1.0.1"
+httpx = "^0.28.1"
+PyJWT = "^2.9.0"
+aio-pika = "^9.4.1"
+prometheus-client = "^0.20.0"
+opentelemetry-sdk = "^1.24.0"
+opentelemetry-exporter-otlp = "^1.24.0"
+opentelemetry-instrumentation-fastapi = "^0.48b0"
+opentelemetry-instrumentation-asyncpg = "^0.48b0"
+opentelemetry-instrumentation-httpx = "^0.48b0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.0.0"
+pytest-asyncio = "^0.23.0"
+black = "^25.11.0"
+ruff = "^0.1.0"
+
+[tool.poetry.scripts]
+start = "uvicorn main:app --host 0.0.0.0 --port 8000"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.black]
+line-length = 100
+target-version = ['py311']
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+

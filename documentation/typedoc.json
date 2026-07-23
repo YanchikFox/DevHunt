@@ -1,0 +1,39 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "../frontend/src/hooks",
+    "../frontend/src/lib/api",
+    "../frontend/src/lib/realtime",
+    "../frontend/src/lib/signalr.ts",
+    "../frontend/src/lib/store",
+    "../frontend/src/lib/utils.ts",
+    "../frontend/src/types"
+  ],
+  "entryPointStrategy": "expand",
+  "out": "docs/frontend/api",
+  "tsconfig": "../frontend/tsconfig.typedoc.json",
+  "exclude": [
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/tests/**",
+    "**/test/**",
+    "**/__tests__/**",
+    "**/__mocks__/**",
+    "**/setupTests.ts",
+    "**/*.stories.tsx",
+    "**/adapters/mock.ts"
+  ],
+  "excludePrivate": true,
+  "excludeProtected": true,
+  "excludeExternals": true,
+  "excludeNotDocumented": false,
+  "readme": "none",
+  "plugin": ["typedoc-plugin-markdown"],
+  "skipErrorChecking": true,
+  "categorizeByGroup": true,
+  "categoryOrder": ["Hooks", "API Queries", "API Client", "Types", "Utilities", "*"],
+  "sort": ["source-order", "alphabetical"],
+  "kindSortOrder": ["Function", "Interface", "TypeAlias", "Variable", "Class"]
+}

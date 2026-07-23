@@ -1,0 +1,514 @@
+rules:
+  # ========================================
+  # CATEGORY 1: Secrets & Exposure
+  # ========================================
+
+  - id: devhunt-hardcoded-secret-csharp
+    # C# assignment pattern: string password = "abc123";
+    patterns:
+      - pattern: $KEY = "..."
+      - pattern-not: $KEY = "YOUR_..."
+      - pattern-not: $KEY = ""
+      - pattern-not: $KEY = "${..."
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: ".*(password|secret|key|token|apikey|api_key|credential).*"
+    message: "Potential hardcoded secret in $KEY. Use environment variables or Azure Key Vault."
+    severity: WARNING
+    languages:
+      - csharp
+
+  - id: devhunt-hardcoded-secret-json
+    # JSON config pattern: "password": "abc123"
+    patterns:
+      - pattern: |
+          "$KEY": "..."
+      - pattern-not: |
+          "$KEY": "YOUR_..."
+      - pattern-not: |
+          "$KEY": ""
+      - pattern-not: |
+          "$KEY": "${..."
+      - metavariable-regex:
+          metavariable: $KEY
+          regex: ".*(password|secret|key|token|apikey|api_key|credential).*"
+    message: "Potential hardcoded secret in $KEY. Use environment variables or Azure Key Vault."
+    severity: WARNING
+    languages:
+      - json
+
+  - id: devhunt-exception-exposure
+    patterns:
+      - pattern-either:
+          - pattern: |
+              StatusCode(500, new { ..., Message = $EX.Message, ... })
+          - pattern: |
+              StatusCode(500, new { ..., Details = $EX.Message, ... })
+          - pattern: |
+              return StatusCode(500, $EX.Message)
+      - pattern-not-inside: |
+          if (_environment.IsDevelopment()) { ... }
+    message: "Exception message exposed to user. Hide in production using IWebHostEnvironment check."
+    severity: WARNING
+    languages:
+      - csharp
+
+  - id: devhunt-log-injection
+    patterns:
+      - pattern-either:
+          - pattern: |
+              _logger.Log...(... , $USER_INPUT, ...)
+      - pattern-not: |
+          _logger.Log...(... , LogSanitizer.Sanitize($USER_INPUT), ...)
+      - pattern-not: |
+          _logger.Log...(... , $CONSTANT, ...)
+      - metavariable-pattern:
+          metavariable: $USER_INPUT
+          patterns:
+            - pattern-either:
+                - pattern: email
+                - pattern: subject
+                - pattern: to
+                - pattern: request.$FIELD
+    message: "User input logged without sanitization. Use LogSanitizer.Sanitize() to prevent log injection."
+    severity: INFO
+    languages:
+      - csharp
+
+  # ========================================
+  # CATEGORY 2: Async / Threading (C#)
+  # ========================================
+
+  - id: devhunt-blocking-task-wait
+    # .Wait() blocks the thread-pool thread and causes deadlocks in ASP.NET Core
+    # synchronization context. Found 0 in prod code — rule ensures it stays that way.
+    patterns:
+      - pattern: $TASK.Wait()
+      - pattern-not-inside: |
+          static void Main(...) { ... }
+    message: |
+      BLOCKING CALL: .Wait() on a Task blocks the thread-pool and deadlocks ASP.NET Core.
+      Replace with:  await $TASK;
+      Ensure the calling method is marked async Task, not async void.
+      Rule: CLAUDE.md § Backend § "Запрещены блокирующие вызовы .Result и .Wait()"
+    severity: ERROR
+    languages:
+      - csharp
+    paths:
+      exclude:
+        - "**/obj/**"
+        - "**/*.Tests/**"
+        - "**/*Tests.cs"
+
+  - id: devhunt-async-void-method
+    # async void swallows exceptions — the process crashes without a catchable exception.
+    # Exceptions from async void go to the AppDomain UnhandledException handler only.
+    patterns:
+      - pattern: |
+          async void $METHOD(...)
+          {
+            ...
+          }
+      - pattern-not: |
+          async void $METHOD(object $SENDER, EventArgs $ARGS)
+          {
+            ...
+          }
+    message: |
+      CRITICAL: async void '$METHOD' swallows exceptions. Unhandled exceptions crash the process.
+      Replace with: async Task $METHOD(...)
+      Only EventHandler delegates (object sender, EventArgs e) may be async void.
+      Rule: CLAUDE.md § Backend § "Везде используй async/await"
+    severity: ERROR
+    languages:
+      - csharp
+    paths:
+      exclude:
+        - "**/obj/**"
+        - "**/*.Tests/**"
+        - "**/*Tests.cs"
+
+  - id: devhunt-savchanges-missing-ct
+    # SaveChangesAsync() without CancellationToken ignores client disconnect signals.
+    # Under load, abandoned DB operations waste connection pool slots.
+    # Found 20+ real instances in Controllers and Services.
+    patterns:
+      - pattern: await $CTX.SaveChangesAsync()
+    message: |
+      SaveChangesAsync() without CancellationToken — abandoned requests keep DB connections alive.
+      Replace with: await $CTX.SaveChangesAsync(ct);
+      Add CancellationToken ct parameter to the enclosing method signature if missing.
+      Rule: CLAUDE.md § Backend § "прокидывай CancellationToken ct"
+    severity: WARNING
+    languages:
+      - csharp
+    paths:
+      exclude:
+        - "**/obj/**"
+        - "**/Migrations/**"
+        - "**/*.Tests/**"
+        - "**/*Tests.cs"
+        - "**/Seeder/**"
+        - "**/DatabaseSeeder/**"
+        - "**/DatabaseMigrator/**"
+
+
+  - id: devhunt-efcore-query-missing-ct
+    # EF Core async queries without CancellationToken don't respect client disconnects.
+    # INFO level — real technical debt, but not an immediate production risk.
+    # Fix incrementally: when touching a file, add ct to its queries.
+    patterns:
+      - pattern-either:
+          - pattern: await $CTX.FirstOrDefaultAsync(...)
+          - pattern: await $CTX.SingleOrDefaultAsync(...)
+          - pattern: await $CTX.ToListAsync()
+          - pattern: await $CTX.CountAsync()
+          - pattern: await $CTX.AnyAsync(...)
+          - pattern: await $CTX.FindAsync(...)
+    message: |
+      EF Core query without CancellationToken — client disconnect is not propagated to PostgreSQL.
+      Fix: pass ct from the enclosing method's CancellationToken parameter.
+        await $CTX.ToListAsync(ct);
+        await $CTX.FirstOrDefaultAsync(predicate, ct);
+      Rule: CLAUDE.md § Backend § "прокидывай CancellationToken ct"
+    severity: INFO
+    languages:
+      - csharp
+    paths:
+      exclude:
+        - "**/obj/**"
+        - "**/Migrations/**"
+        - "**/*.Tests/**"
+        - "**/*Tests.cs"
+        - "**/Seeder/**"
+        - "**/DatabaseMigrator/**"
+
+  # ========================================
+  # CATEGORY 3: Security & Authorization (C#)
+  # ========================================
+
+  - id: devhunt-hardcoded-role-csharp
+    # Role comparisons must go through SecurityHelpers (centralized checks).
+    # Scattered inline comparisons drift out of sync when roles change.
+    # Real violations found in:
+    #   AdminSupportController.cs:61 — role == "admin" || role == "curator"
+    #   AdminController.cs — user is "admin" or "curator" or "superadmin" (C# pattern matching)
+    # Both styles are caught by this rule.
+    patterns:
+      - pattern-either:
+          - pattern: $X.Role == "admin"
+          - pattern: $X.Role == "curator"
+          - pattern: $X.Role == "superadmin"
+          - pattern: $X.Role == "participant"
+          - pattern: role == "admin"
+          - pattern: role == "curator"
+          - pattern: role == "superadmin"
+          - pattern: role == "participant"
+          - pattern: $X is "admin"
+          - pattern: $X is "curator"
+          - pattern: $X is "superadmin"
+          - pattern: $X is "participant"
+    message: |
+      Hardcoded role string in comparison. Use centralized SecurityHelpers:
+        SecurityHelpers.IsAdminOrCurator(User)  — admin, curator, superadmin
+        SecurityHelpers.IsAdmin(User)            — admin, superadmin
+        SecurityHelpers.IsSuperAdmin(User)       — superadmin only
+      Or for DB-validated checks (AdminController pattern):
+        private async Task<bool> IsAdminOrCuratorAsync()  — validates role in DB, not just JWT
+      Rule: CLAUDE.md § Security § "Никогда не хардкодь роли"
+    severity: WARNING
+    languages:
+      - csharp
+    paths:
+      exclude:
+        - "**/SecurityHelpers.cs"
+        - "**/obj/**"
+        - "**/*.Tests/**"
+        - "**/*Tests.cs"
+
+  - id: devhunt-new-httpclient-instantiation
+    # Direct HttpClient() instantiation causes socket exhaustion (TIME_WAIT state).
+    # Each instance holds a socket open for 240 seconds after disposal.
+    pattern: new HttpClient()
+    message: |
+      SOCKET EXHAUSTION RISK: new HttpClient() leaks sockets under load.
+      Use IHttpClientFactory injected via constructor:
+        private readonly IHttpClientFactory _httpClientFactory;
+        _httpClientFactory.CreateClient("ServiceName")
+      Register in Program.cs:
+        builder.Services.AddHttpClient("ServiceName", c => c.BaseAddress = ...);
+    severity: ERROR
+    languages:
+      - csharp
+    paths:
+      exclude:
+        - "**/obj/**"
+        - "**/*.Tests/**"
+        - "**/*Tests.cs"
+
+  - id: devhunt-multiple-savechanges-no-transaction
+    # Two separate SaveChangesAsync calls in one method without a transaction scope
+    # means partial failure leaves the DB in an inconsistent state.
+    patterns:
+      - pattern: |
+          await $CTX.SaveChangesAsync(...);
+          ...
+          await $CTX.SaveChangesAsync(...);
+      - pattern-not-inside: |
+          using ($TX = ...)
+          {
+            ...
+          }
+      - pattern-not-inside: |
+          await using ($TX = ...)
+          {
+            ...
+          }
+    message: |
+      CONSISTENCY RISK: Two SaveChangesAsync calls without a transaction.
+      If the second fails, the first write is committed and cannot be rolled back — split brain state.
+      Wrap both in an EF Core transaction:
+        await using var tx = await $CTX.Database.BeginTransactionAsync(ct);
+        // ... first write ...
+        await $CTX.SaveChangesAsync(ct);
+        // ... second write ...
+        await $CTX.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+      Rule: CLAUDE.md § Backend § "отсутствие транзакций"
+    severity: ERROR
+    languages:
+      - csharp
+    paths:
+      exclude:
+        - "**/obj/**"
+        - "**/*.Tests/**"
+        - "**/*Tests.cs"
+        - "**/Migrations/**"
+
+  - id: devhunt-fire-and-forget-eventbus
+    # Паттерн "_ = task" отбрасывает Task без await — исключения проглатываются, результат игнорируется.
+    # Для IEventBusService это критично: OutboxEventBusDecorator сохраняет событие в OutboxEvents
+    # в рамках той же транзакции EF Core. Без await запись может не завершиться,
+    # фоновый worker не получит событие, и оно теряется навсегда при любом сбое.
+    # Реальное нарушение: ChatService.cs:273 — ConversationCreated событие fire-and-forget.
+    patterns:
+      - pattern-either:
+          - pattern: "_ = $BUS.PublishAsync(...);"
+          - pattern: "_ = _eventBus.PublishAsync(...);"
+          - pattern: "_ = _messageBroker.PublishAsync(...);"
+    message: |
+      FIRE-AND-FORGET EVENT: Отброшенный Task от PublishAsync — исключения проглатываются.
+      OutboxEventBusDecorator теряет событие, гарантия at-least-once нарушается.
+
+      Замените на:
+        await _eventBus.PublishAsync(domainEvent, ct);
+
+      Почему важно: OutboxEventBusDecorator.PublishAsync сохраняет событие в OutboxEvents таблицу
+      в рамках той же EF Core транзакции. Фоновый worker доставляет в RabbitMQ с retry.
+      Без await запись в Outbox может не произойти — событие теряется при сбое RabbitMQ.
+
+      Правило: CLAUDE.md § Backend § B-07 "ЗАПРЕЩЕНО fire-and-forget для Event Bus"
+      Аудит: #006 C-10 (ChatService.cs:273)
+    severity: ERROR
+    languages:
+      - csharp
+    paths:
+      exclude:
+        - "**/obj/**"
+        - "**/*.Tests/**"
+        - "**/*Tests.cs"
+        - "**/OutboxEvent*.cs"
+        - "**/OutboxWorker*.cs"
+
+  - id: devhunt-eventbus-before-savechanges
+    # Publishing an event before SaveChangesAsync means the event fires even if the DB write fails.
+    # The Outbox pattern (_eventBus saves to OutboxEvents table) mitigates this,
+    # but a direct publish before save would bypass the outbox guarantee.
+    patterns:
+      - pattern: |
+          await $BUS.PublishAsync(...);
+          ...
+          await $CTX.SaveChangesAsync(...);
+    message: |
+      EVENT BEFORE COMMIT: Event published before SaveChangesAsync — if DB save fails,
+      the event already fired and state is inconsistent (ghost event).
+      Correct order:
+        1. await $CTX.SaveChangesAsync(ct);   // commit state first
+        2. await $BUS.PublishAsync(...);       // then publish event
+      The Outbox pattern (OutboxEventBusDecorator) saves events to DB atomically — use it.
+      Rule: CLAUDE.md § Backend § "публикация событий идет через RabbitMQ после транзакции"
+    severity: ERROR
+    languages:
+      - csharp
+    paths:
+      exclude:
+        - "**/obj/**"
+        - "**/*.Tests/**"
+        - "**/*Tests.cs"
+        - "**/OutboxEvent*.cs"
+
+  # ========================================
+  # CATEGORY 4: TypeScript / React Rules
+  # ========================================
+
+  - id: devhunt-no-any-type
+    # 'any' disables TypeScript's type system for that value entirely.
+    # Found real violations in: useAiChatSuggestions.ts, useAiChatMessaging.ts, ChatHeader.tsx
+    patterns:
+      - pattern: "$PARAM: any"
+    message: |
+      Forbidden 'any' type disables TypeScript checks for this value (JS-0323).
+      Alternatives:
+        • Use 'unknown' + type guard:  if (typeof x === 'string') { ... }
+        • Write an explicit interface for the data shape
+        • Use generics: <T extends Record<string, unknown>>
+        • For translation functions: (key: string, values?: Record<string, unknown>) => string
+      Rule: CLAUDE.md § Frontend § "ЗАПРЕЩЕНО использовать тип any"
+    severity: WARNING
+    languages:
+      - typescript
+    paths:
+      exclude:
+        - "**/node_modules/**"
+        - "**/*.d.ts"
+        - "**/*.test.*"
+        - "**/*.spec.*"
+        - "**/__tests__/**"
+
+  - id: devhunt-inline-arrow-event-handler
+    # Inline arrows create a new function reference on every render.
+    # This breaks React.memo, useCallback, and causes child re-renders.
+    # Found real violations in: BadgeManagement.tsx (6x), UserManagement.tsx (10x)
+    patterns:
+      - pattern-either:
+          - pattern: <$EL onClick={() => $BODY} .../>
+          - pattern: <$EL onChange={() => $BODY} .../>
+          - pattern: <$EL onSubmit={() => $BODY} .../>
+          - pattern: <$EL onClick={(e) => $BODY} .../>
+          - pattern: <$EL onChange={(e) => $BODY} .../>
+          - pattern: <$EL onSubmit={(e) => $BODY} .../>
+          - pattern: <$EL onClick={($A, $B) => $BODY} .../>
+          - pattern: <$EL onKeyDown={() => $BODY} .../>
+          - pattern: <$EL onKeyDown={(e) => $BODY} .../>
+    message: |
+      Inline arrow function in event prop causes re-render on every parent render (JS-0417).
+      Extract to a useCallback handler:
+        const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+          setFormData(prev => ({ ...prev, field: e.target.value }));
+        }, []);
+        <$EL onChange={handleChange} />
+      Rule: CLAUDE.md § Frontend § "Используй useCallback"
+    severity: WARNING
+    languages:
+      - typescript
+    paths:
+      exclude:
+        - "**/node_modules/**"
+        - "**/*.test.*"
+        - "**/*.spec.*"
+        - "**/__tests__/**"
+
+  - id: devhunt-inline-style-jsx
+    # Inline styles bypass TailwindCSS, can't be purged, and create specificity wars.
+    # Currently 0 violations — this rule prevents future regressions.
+    patterns:
+      - pattern: <$EL style={{...}} .../>
+      - pattern-not: <$EL style={styles.$PROP} .../>
+    message: |
+      Inline style detected. DevHunt uses TailwindCSS exclusively.
+      Replace with Tailwind utility classes:  className="..."
+      For dynamic values, use cn() / clsx() with conditional classes:
+        className={cn("base-class", isActive && "active-class", { "error": hasError })}
+      Rule: CLAUDE.md § Frontend § "Только TailwindCSS. Никаких inline-стилей"
+    severity: WARNING
+    languages:
+      - typescript
+    paths:
+      exclude:
+        - "**/node_modules/**"
+
+  - id: devhunt-forced-ts-cast
+    # Форсированный каст "expr as { field?: Type }" отключает type checking без ошибки компилятора.
+    # Функционально эквивалентен any: компилятор соглашается, но если структура объекта
+    # не совпадает в runtime — получаем silent undefined вместо TypeError.
+    # Особенно опасен в catch-блоках: "error as { userMessage?: string }" — если error это
+    # строка или null, поле .userMessage будет undefined без предупреждений.
+    # Реальные нарушения: 31 вхождение в production-коде.
+    # Самые опасные: edit/page.tsx:135, use-project-team.ts:158, SuperAdminPanel.tsx:61,264,370
+    patterns:
+      - pattern-either:
+          - pattern: "$X as { $FIELD?: $T }"
+          - pattern: "$X as { $FIELD: $T }"
+          - pattern: "$X as unknown as { $FIELD?: $T }"
+          - pattern: "$X as unknown as { $FIELD: $T }"
+      - pattern-not-inside: |
+          function $GUARD($PARAM: unknown): $PARAM is $TYPE { ... }
+      - pattern-not-inside: |
+          ($PARAM: unknown): $PARAM is $TYPE => ...
+    message: |
+      Форсированный каст 'as { }' отключает type system (аналог any) без ошибки компилятора (JS-0323).
+      Runtime-безопасности нет: если объект не соответствует структуре, получите silent undefined.
+
+      Замените на type guard с проверкой структуры:
+        function isApiError(e: unknown): e is { userMessage?: string; message?: string } {
+          return typeof e === "object" && e !== null && ("userMessage" in e || "message" in e)
+        }
+        const msg = isApiError(error) ? (error.userMessage ?? error.message) : "Unknown error"
+
+      Или используйте Zod для API-ответов:
+        const result = ApiErrorSchema.safeParse(error)
+        if (result.success) { ... result.data.message ... }
+
+      Правило: CLAUDE.md § Frontend § F-05 "ЗАПРЕЩЕНЫ форсированные касты as { }"
+      Аудит: #009 A-12, #007 #9 — распространён в error handlers и API response mapping
+    severity: WARNING
+    languages:
+      - typescript
+    paths:
+      exclude:
+        - "**/node_modules/**"
+        - "**/*.d.ts"
+        - "**/*.test.*"
+        - "**/*.spec.*"
+        - "**/__tests__/**"
+
+  - id: devhunt-hardcoded-role-typescript
+    # Role strings must use constants, not string literals.
+    # Real violations found in: admin/page.tsx:50-53, UserManagement.tsx:29,140-141,189
+    patterns:
+      - pattern-either:
+          - pattern: $X.role === "admin"
+          - pattern: $X.role === "curator"
+          - pattern: $X.role === "superadmin"
+          - pattern: $X.role === "participant"
+          - pattern: $X?.role === "admin"
+          - pattern: $X?.role === "curator"
+          - pattern: $X?.role === "superadmin"
+          - pattern: $X?.role === "participant"
+          - pattern: $X.role == "admin"
+          - pattern: $X.role == "curator"
+          - pattern: $X.role == "superadmin"
+    message: |
+      Hardcoded role string in comparison. Create and use role constants to avoid drift.
+
+      Create  frontend/src/lib/constants/roles.ts:
+        export const ROLES = {
+          ADMIN: "admin",
+          CURATOR: "curator",
+          SUPERADMIN: "superadmin",
+          PARTICIPANT: "participant",
+        } as const;
+        export type Role = typeof ROLES[keyof typeof ROLES];
+
+      Then use:
+        user?.role === ROLES.ADMIN
+        [ROLES.ADMIN, ROLES.CURATOR, ROLES.SUPERADMIN].includes(user.role)
+      Rule: CLAUDE.md § Security § "Никогда не хардкодь роли"
+    severity: WARNING
+    languages:
+      - typescript
+    paths:
+      exclude:
+        - "**/node_modules/**"
+        - "**/*.test.*"
+        - "**/*.spec.*"

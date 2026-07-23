@@ -1,0 +1,118 @@
+name: Visual Regression Testing (Chromatic)
+
+on:
+  # Disabled auto-triggers to save CI minutes
+  # push:
+  #   branches: [ main, develop ]
+  #   paths:
+  #     - 'frontend/src/components/**'
+  #     - 'frontend/.storybook/**'
+  #     - 'frontend/src/**/*.stories.tsx'
+  # pull_request:
+  #   branches: [ main, develop ]
+  #   paths:
+  #     - 'frontend/src/components/**'
+  #     - 'frontend/.storybook/**'
+  #     - 'frontend/src/**/*.stories.tsx'
+  workflow_dispatch:
+    inputs:
+      verbose_logs:
+        description: 'Upload job logs as artifact'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: chromatic-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  chromatic:
+    name: Chromatic Visual Regression
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Required for Chromatic to compare with base branch
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Run Chromatic
+        uses: chromaui/action@v11
+        with:
+          projectToken: ${{ secrets.CHROMATIC_PROJECT_TOKEN }}
+          workingDir: frontend
+          buildScriptName: build-storybook
+          onlyChanged: true  # Only test changed stories
+          autoAcceptChanges: main  # Auto-accept changes on main branch
+          exitZeroOnChanges: true  # Don't fail CI, just report changes
+          exitOnceUploaded: true  # Speed up CI
+
+      - name: Comment PR with Chromatic link
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          message: |
+            ## 🎨 Visual Regression Testing
+            
+            Chromatic build completed! Check the Chromatic dashboard for visual changes.
+            
+            > Note: If you see visual changes, please review them in the Chromatic UI and approve if intentional.
+
+  storybook-accessibility:
+    name: Storybook Accessibility Audit
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build Storybook
+        working-directory: ./frontend
+        run: npm run build-storybook
+
+      - name: Install test dependencies
+        working-directory: ./frontend
+        run: npm install --no-save @storybook/test-runner@^0.19.0 concurrently wait-on http-server
+
+      - name: Run Storybook accessibility tests
+        working-directory: ./frontend
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          npx concurrently -k -s first -n "SB,TEST" -c "magenta,blue" \
+            "npx http-server storybook-static --port 6006 --silent" \
+            "npx wait-on tcp:6006 && npx test-storybook --url http://localhost:6006" \
+            2>&1 | tee ${{ github.workspace }}/logs/a11y-test.log
+        continue-on-error: true
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: storybook-a11y-logs
+          path: ${{ github.workspace }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7

@@ -1,0 +1,40 @@
+# Checkov Configuration
+# https://www.checkov.io/2.Basics/CLI%20Command%20Reference.html
+
+# Note: framework is NOT specified here to avoid conflicts with action inputs
+# The framework is set in the GitHub workflow file (.github/workflows/iac-security.yml)
+
+# Skip specific checks (add with justification)
+skip-check:
+  # CKV_DOCKER_2: Ensure that HEALTHCHECK instructions have been added to container images
+  # We use orchestrator-level health checks (Kubernetes probes)
+  - CKV_DOCKER_2
+  
+  # CKV_DOCKER_3: Ensure that a user for the container has been created
+  # Some base images handle this differently
+  # - CKV_DOCKER_3
+
+# Directories to exclude
+skip-path:
+  - node_modules
+  - .git
+  - bin
+  - obj
+  - .next
+  - coverage
+
+# Compact output
+compact: true
+
+# Output format
+output:
+  - cli
+  - json
+  - sarif
+
+# Soft fail (don't break CI, just report)
+soft-fail: false
+
+# External checks (custom policies)
+# external-checks-dir:
+#   - ./custom-checkov-policies

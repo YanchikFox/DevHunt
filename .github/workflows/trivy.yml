@@ -1,0 +1,38 @@
+name: Trivy Security Scan
+
+on:
+  # Removed push trigger to save CI minutes
+  pull_request:
+  workflow_dispatch: # Manual trigger
+    inputs:
+      verbose_logs:
+        description: 'Upload job logs as artifact'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  trivy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Run Trivy scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          severity: HIGH,CRITICAL
+          hide-progress: true
+          output: trivy-report.txt
+
+      - name: Show Trivy results
+        if: always()
+        run: cat trivy-report.txt 2>/dev/null || echo "No report generated"
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: trivy-logs
+          path: trivy-report.txt
+          if-no-files-found: ignore
+          retention-days: 7

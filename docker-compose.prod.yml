@@ -1,0 +1,159 @@
+# Production Docker Compose Override
+# SECURITY FIX (SEC-001, CFG-002): Production configuration without default secrets
+#
+# ALL SECRETS MUST BE SET via environment variables — see .env.production.example
+#
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up
+#
+# Validate merged config (CI / local):
+#   docker compose --env-file env/compose-ci.env -f docker-compose.yml -f docker-compose.prod.yml config --quiet
+
+x-security-common: &security-common
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  read_only: true
+  tmpfs:
+    - /tmp
+
+services:
+  db:
+    <<: *security-common
+    read_only: false
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    ports: []
+    environment:
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set for production - 32+ chars}"
+
+  cache-service:
+    <<: *security-common
+    read_only: false
+    ports: []
+
+  message-broker:
+    <<: *security-common
+    read_only: false
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    ports: []
+    environment:
+      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS must be set for production - 32+ chars}"
+
+  object-storage:
+    <<: *security-common
+    read_only: false
+    ports: []
+    environment:
+      S3_ACCESS_KEY_ID: "${OBJECT_STORAGE_ACCESS_KEY:?OBJECT_STORAGE_ACCESS_KEY must be set - 32+ chars}"
+      S3_SECRET_ACCESS_KEY: "${OBJECT_STORAGE_SECRET_KEY:?OBJECT_STORAGE_SECRET_KEY must be set - 32+ chars}"
+
+  api-gateway:
+    <<: *security-common
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile.prod
+    cap_add:
+      - NET_BIND_SERVICE
+    ports:
+      - "${PORT_API_GATEWAY:-80}:${INTERNAL_PORT_API_GATEWAY:-8080}"
+      - "${PORT_API_GATEWAY_HTTPS:-443}:${INTERNAL_PORT_API_GATEWAY_HTTPS:-8443}"
+
+  frontend:
+    <<: *security-common
+    ports: []
+    environment:
+      NODE_ENV: "production"
+      NEXT_PUBLIC_USE_PROXY: "true"
+      DOCKER_ENV: "true"
+      NEXT_PUBLIC_AUTH_API_URL: "/api/proxy-auth"
+      AUTH_SECRET: "${AUTH_SECRET:?AUTH_SECRET must be set for production - use openssl rand -base64 32}"
+      NEXTAUTH_SECRET: "${AUTH_SECRET}"
+      AUTH_URL: "${FRONTEND__BASEURL:?FRONTEND__BASEURL must be set}"
+
+  auth-service:
+    <<: *security-common
+    ports: []
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      Jwt__Key: "${JWT_KEY:?JWT_KEY must be set for production - 32+ chars}"
+      Authentication__Google__ClientId: "${AUTHENTICATION__GOOGLE__CLIENTID:?Google ClientId required}"
+      Authentication__Google__ClientSecret: "${AUTHENTICATION__GOOGLE__CLIENTSECRET:?Google ClientSecret required}"
+      Authentication__GitHub__ClientId: "${AUTHENTICATION__GITHUB__CLIENTID:?GitHub ClientId required}"
+      Authentication__GitHub__ClientSecret: "${AUTHENTICATION__GITHUB__CLIENTSECRET:?GitHub ClientSecret required}"
+      Email__SmtpHost: "${EMAIL__SMTPHOST:?SMTP host required}"
+      Email__SmtpPort: ${EMAIL__SMTPPORT:-587}
+      Email__SmtpUser: ${EMAIL__SMTPUSER}
+      Email__SmtpPass: ${EMAIL__SMTPPASS}
+      Email__SmtpUseSsl: ${EMAIL__SMTPUSESSL:-true}
+      Email__FromEmail: ${EMAIL__FROMEMAIL:-no-reply@devhunt.local}
+      Email__FromName: ${EMAIL__FROMNAME:-DevHunt}
+      Frontend__BaseUrl: "${FRONTEND__BASEURL:?FRONTEND__BASEURL must be set}"
+      OpenObserve__Password: "${OPENOBSERVE_ROOT_PASSWORD:?OPENOBSERVE_ROOT_PASSWORD must be set - 32+ chars}"
+
+  core-api:
+    <<: *security-common
+    ports: []
+    environment:
+      ASPNETCORE_ENVIRONMENT: "Production"
+      Jwt__Key: "${JWT_KEY:?JWT_KEY must be set for production - 32+ chars}"
+      Encryption__Key: "${ENCRYPTION_KEY:?ENCRYPTION_KEY must be set - exactly 32 characters}"
+      Encryption__IV: "${ENCRYPTION_IV:?ENCRYPTION_IV must be set - exactly 16 characters}"
+      ObjectStorage__AccessKey: "${OBJECT_STORAGE_ACCESS_KEY:?OBJECT_STORAGE_ACCESS_KEY must be set}"
+      ObjectStorage__SecretKey: "${OBJECT_STORAGE_SECRET_KEY:?OBJECT_STORAGE_SECRET_KEY must be set}"
+      OpenObserve__Password: "${OPENOBSERVE_ROOT_PASSWORD:?OPENOBSERVE_ROOT_PASSWORD must be set}"
+      Features__EventBus__Enabled: "true"
+
+  ml-service:
+    <<: *security-common
+    ports: []
+    environment:
+      ENVIRONMENT: "production"
+      JWT_SECRET: "${JWT_KEY:?JWT_KEY must be set for production - 32+ chars}"
+      OPENOBSERVE_ROOT_PASSWORD: "${OPENOBSERVE_ROOT_PASSWORD:?OPENOBSERVE_ROOT_PASSWORD must be set}"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS must be set for production - no wildcard}"
+
+  notification-service:
+    <<: *security-common
+    ports: []
+    environment:
+      NODE_ENV: "production"
+      OPENOBSERVE_PASSWORD: "${OPENOBSERVE_ROOT_PASSWORD:?OPENOBSERVE_ROOT_PASSWORD must be set}"
+      ALERT_WEBHOOK_SECRET: "${ALERT_WEBHOOK_SECRET:?ALERT_WEBHOOK_SECRET must be set for production - 32+ chars}"
+      RATE_LIMIT_REDIS_URL: "redis://cache-service:6379/0"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS must be set for production}"
+
+  integration-gateway:
+    <<: *security-common
+    ports: []
+    environment:
+      ENVIRONMENT: "production"
+      JWT_SECRET: "${JWT_KEY:?JWT_KEY must be set for production - 32+ chars}"
+      INTERNAL_API_KEY: "${INTERNAL_API_KEY:?INTERNAL_API_KEY must be set for production - 32+ chars}"
+      ANALYZER_API_SECRET: "${ANALYZER_API_SECRET:?ANALYZER_API_SECRET must be set for production - 32+ chars}"
+      GITHUB_WEBHOOK_SECRET: "${GITHUB_WEBHOOK_SECRET:?GITHUB_WEBHOOK_SECRET must be set - 32+ chars}"
+      GITLAB_WEBHOOK_SECRET: "${GITLAB_WEBHOOK_SECRET:?GITLAB_WEBHOOK_SECRET must be set - 32+ chars}"
+      CORS_ALLOWED_ORIGINS: "${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS must be set for production}"
+      OPENOBSERVE_PASSWORD: "${OPENOBSERVE_ROOT_PASSWORD:?OPENOBSERVE_ROOT_PASSWORD must be set}"
+      RATE_LIMIT_REDIS_URL: "redis://cache-service:6379/0"
+
+  code-analyzer:
+    <<: *security-common
+    ports: []
+    environment:
+      ANALYZER_API_SECRET: "${ANALYZER_API_SECRET:?ANALYZER_API_SECRET must be set for production - 32+ chars}"
+      ANALYZER_AUTH_DISABLED: "false"
+
+  openobserve:
+    <<: *security-common
+    read_only: false
+    ports: []
+
+  backup-service:
+    <<: *security-common
+    read_only: false

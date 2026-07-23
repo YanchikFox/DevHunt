@@ -1,0 +1,52 @@
+name: PowerShell Lint
+
+on:
+  # Removed push trigger to save CI minutes
+  pull_request:
+    paths:
+      - 'scripts/**/*.ps1'
+      - '**/*.ps1'
+  workflow_dispatch: # Manual trigger
+    inputs:
+      verbose_logs:
+        description: 'Upload job logs as artifact'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  pslint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install PowerShell
+        run: |
+          # Install PowerShell if not available
+          if ! command -v pwsh &> /dev/null; then
+            sudo apt-get update
+            sudo apt-get install -y wget apt-transport-https software-properties-common
+            wget -q https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb
+            sudo dpkg -i packages-microsoft-prod.deb
+            sudo apt-get update
+            sudo apt-get install -y powershell
+          fi
+
+      - name: Install PSScriptAnalyzer
+        run: pwsh -c "Install-Module -Name PSScriptAnalyzer -Force -Scope CurrentUser"
+
+      - name: Run Script Analyzer
+        run: |
+          mkdir -p logs
+          set -o pipefail
+          pwsh -c "Invoke-ScriptAnalyzer -Path ./scripts -Recurse -Severity Error" 2>&1 | tee logs/psscriptanalyzer.log
+        continue-on-error: true
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: powershell-lint-logs
+          path: logs/
+          if-no-files-found: ignore
+          retention-days: 7
