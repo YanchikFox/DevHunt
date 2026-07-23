@@ -94,7 +94,7 @@
     "@vitejs/plugin-react": "^5.1.0",
     "@vitest/coverage-v8": "^4.0.10",
     "autoprefixer": "^10.4.17",
-    "chromatic": "^13.3.4",
+    "chromatic": "^18.1.0",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.1",
     "eslint-plugin-storybook": "10.2.19",
