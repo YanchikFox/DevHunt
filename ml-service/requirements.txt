@@ -22,4 +22,4 @@ opentelemetry-instrumentation-fastapi==0.48b0
 opentelemetry-instrumentation-asyncpg==0.48b0
 opentelemetry-instrumentation-httpx==0.48b0
 opentelemetry-instrumentation-logging==0.48b0
-opentelemetry-semantic-conventions==0.48b0
+opentelemetry-semantic-conventions==0.65b0
