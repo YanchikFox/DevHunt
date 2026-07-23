@@ -2,4 +2,6 @@
   <Project Path="DevHunt.AuthService/DevHunt.AuthService.csproj" />
   <Project Path="DevHunt.CoreApi/DevHunt.CoreApi.csproj" />
   <Project Path="DevHunt.Infrastructure/DevHunt.Infrastructure.csproj" />
+  <Project Path="DevHunt.AuthService.Tests/DevHunt.AuthService.Tests.csproj" />
+  <Project Path="DevHunt.CoreApi.Tests/DevHunt.CoreApi.Tests.csproj" />
 </Solution>

@@ -61,7 +61,7 @@ function extractTitleFromSummary(summary: string | undefined): string | null {
  * Get payload JSON string from activity (supports both camelCase and PascalCase)
  */
 function getPayloadJson(activity: UserActivityFeedItem): string | undefined {
-    return activity.payloadJson ?? (activity as Record<string, unknown>).PayloadJson as string | undefined
+    return activity.payloadJson ?? (activity as unknown as Record<string, unknown>).PayloadJson as string | undefined
 }
 
 /**

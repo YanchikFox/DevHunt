@@ -76,7 +76,7 @@ export function useToolExecutor({
                     // Task Tools
                     // -----------------------------------------------------------------
                     case "create_task": {
-                        const createArgs = args as CreateTaskArgs
+                        const createArgs = args as unknown as CreateTaskArgs
                         const priority = createArgs.priority === "critical" ? "urgent" : createArgs.priority
                         result = await createTaskMutation.mutateAsync({
                             projectId,
@@ -92,7 +92,7 @@ export function useToolExecutor({
                     }
 
                     case "update_task": {
-                        const updateArgs = args as UpdateTaskArgs
+                        const updateArgs = args as unknown as UpdateTaskArgs
                         const priority = updateArgs.priority === "critical" ? "urgent" : updateArgs.priority
                         await updateTaskMutation.mutateAsync({
                             projectId,
@@ -112,7 +112,7 @@ export function useToolExecutor({
                     }
 
                     case "delete_task": {
-                        const deleteArgs = args as DeleteTaskArgs
+                        const deleteArgs = args as unknown as DeleteTaskArgs
                         if (!deleteArgs.taskId) {
                             throw new Error("taskId is required for delete_task")
                         }
@@ -125,7 +125,7 @@ export function useToolExecutor({
                     }
 
                     case "move_task": {
-                        const moveArgs = args as MoveTaskArgs
+                        const moveArgs = args as unknown as MoveTaskArgs
                         if (!moveArgs.columnId && !moveArgs.columnName) {
                             throw new Error("columnId or columnName is required for move_task")
                         }
@@ -140,7 +140,7 @@ export function useToolExecutor({
                     }
 
                     case "create_multiple_tasks": {
-                        const multiArgs = args as CreateMultipleTasksArgs
+                        const multiArgs = args as unknown as CreateMultipleTasksArgs
                         const createdTasks = []
                         for (const taskDef of multiArgs.tasks) {
                             const priority = taskDef.priority === "critical" ? "urgent" : taskDef.priority
@@ -197,7 +197,7 @@ export function useToolExecutor({
                     }
 
                     case "move_multiple_tasks": {
-                        const mvArgs = args as MoveMultipleTasksArgs
+                        const mvArgs = args as unknown as MoveMultipleTasksArgs
                         let idsToMove: string[] = []
 
                         if (mvArgs.taskIds && mvArgs.taskIds.length > 0) {
@@ -313,7 +313,7 @@ export function useToolExecutor({
                     // Content Tools
                     // -----------------------------------------------------------------
                     case "generate_news_draft": {
-                        const newsArgs = args as GenerateNewsDraftArgs
+                        const newsArgs = args as unknown as GenerateNewsDraftArgs
                         // This tool returns content, not an action - the draft is in the AI's response
                         result = {
                             type: "content_generated",
