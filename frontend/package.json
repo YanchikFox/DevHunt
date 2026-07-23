@@ -96,7 +96,7 @@
     "autoprefixer": "^10.4.17",
     "chromatic": "^13.3.4",
     "eslint": "^9.39.1",
-    "eslint-config-next": "^16.0.1",
+    "eslint-config-next": "^16.2.11",
     "eslint-plugin-storybook": "10.2.19",
     "husky": "^9.1.7",
     "jest-axe": "^8.0.0",
