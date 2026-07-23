@@ -100,7 +100,7 @@
     "eslint-plugin-storybook": "10.2.19",
     "husky": "^9.1.7",
     "jest-axe": "^8.0.0",
-    "jsdom": "^27.3.0",
+    "jsdom": "^29.1.1",
     "lint-staged": "^16.2.6",
     "postcss": "^8.4.33",
     "prettier": "^3.1.0",
