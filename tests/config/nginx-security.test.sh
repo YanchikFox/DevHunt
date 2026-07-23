@@ -67,9 +67,11 @@ grep -q 'nginx-http-only.conf' "$NGINX_PROD_DOCKERFILE" && fail "Dockerfile.prod
 
 grep -q 'dockerfile: Dockerfile.prod' docker-compose.prod.yml || fail "docker-compose.prod.yml must build api-gateway from Dockerfile.prod"
 
-# Security headers on TLS config
+# Security headers — checked across nginx.conf and the shared edge-security
+# include (both are already required above to include edge-security.inc, so
+# a header defined in either file is present in the effective config).
 for header in Strict-Transport-Security X-Frame-Options X-Content-Type-Options; do
-  grep -q "$header" "$NGINX_TLS_CONF" || fail "nginx.conf missing $header"
+  grep -q "$header" "$NGINX_TLS_CONF" "$NGINX_EDGE_INC" || fail "nginx.conf (or edge-security.inc) missing $header"
 done
 
 echo "✅ Nginx security checks passed"

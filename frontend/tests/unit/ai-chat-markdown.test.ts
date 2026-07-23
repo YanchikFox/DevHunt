@@ -10,16 +10,14 @@ import { aiChatRehypePlugins } from "@/lib/security/ai-chat-rehype-plugins";
  * Mirrors AiChatWindow ReactMarkdown pipeline for XSS regression checks.
  */
 async function renderAiChatMarkdown(source: string): Promise<string> {
-  let processor = unified()
+  const processor = unified()
     .use(remarkParse)
     .use(remarkGfm)
-    .use(remarkRehype, { allowDangerousHtml: true });
+    .use(remarkRehype, { allowDangerousHtml: true })
+    .use(aiChatRehypePlugins)
+    .use(rehypeStringify);
 
-  for (const plugin of aiChatRehypePlugins) {
-    processor = processor.use(plugin);
-  }
-
-  const file = await processor.use(rehypeStringify).process(source);
+  const file = await processor.process(source);
   return String(file);
 }
 

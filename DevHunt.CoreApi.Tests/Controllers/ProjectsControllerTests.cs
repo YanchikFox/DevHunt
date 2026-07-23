@@ -884,8 +884,12 @@ public class ProjectsControllerTests : IDisposable
         // Assert
         result.Should().BeOfType<NoContentResult>();
 
-        // Project should be permanently deleted
-        var deletedProject = await _dbContext.Projects.FindAsync(project.Id);
+        // Project should be permanently deleted.
+        // ExecuteDeleteAsync bypasses the change tracker, so FindAsync would return the
+        // stale tracked instance from Arrange instead of re-querying — use AsNoTracking
+        // to force a real read of the store.
+        var deletedProject = await _dbContext.Projects.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == project.Id);
         deletedProject.Should().BeNull();
     }
 

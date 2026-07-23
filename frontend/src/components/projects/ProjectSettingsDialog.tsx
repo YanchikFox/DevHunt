@@ -75,13 +75,13 @@ const normalizeVisibility = (value?: string | null): ProjectVisibilityOption => 
  * ```
  */
 function ProjectVisibilitySelect({ label, value, onChange, disabled, placeholder, tVal }: {
-  label: string; value: string; onChange: (v: string) => void
+  label: string; value: ProjectVisibilityOption; onChange: (v: ProjectVisibilityOption) => void
   disabled: boolean; placeholder: string; tVal: (k: string) => string
 }) {
   return (
     <div className="space-y-2">
       <Label className="text-xs uppercase tracking-wide">{label}</Label>
-      <Select value={value} onValueChange={onChange} disabled={disabled}>
+      <Select value={value} onValueChange={(v) => onChange(normalizeVisibility(v))} disabled={disabled}>
         <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
         <SelectContent>
           <SelectItem value="public">{tVal("public")}</SelectItem>

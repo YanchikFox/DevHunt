@@ -47,7 +47,7 @@ function OpenRolesSection({
     if (pendingMyJoinRequest?.id && onCancelInvitation) {
       onCancelInvitation(pendingMyJoinRequest.id)
     }
-  }, [pendingMyJoinRequest?.id, onCancelInvitation])
+  }, [pendingMyJoinRequest, onCancelInvitation])
 
   if (isLoading) {
     return (

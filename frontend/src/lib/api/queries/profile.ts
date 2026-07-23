@@ -220,7 +220,8 @@ export function useUserActivityFeed(
   enabled = true,
   pageSize = 8
 ) {
-  return useInfiniteQuery<UserActivityFeedPage, unknown, UserActivityFeedPage>({
+  // P2-11: no TData override — default InfiniteData<UserActivityFeedPage> is correct
+  return useInfiniteQuery<UserActivityFeedPage, unknown>({
     queryKey: ["userActivityFeed", userId, visibility],
     queryFn: async ({ pageParam = 1 }) => {
       const response = await apiClient.get(`/users/${userId}/activities`, {
