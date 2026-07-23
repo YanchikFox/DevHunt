@@ -21,7 +21,7 @@ jobs:
     container:
       image: semgrep/semgrep:1.151.0
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     # ──────────────────────────────────────────────────────────────
     # Step 1: Validate local rules BEFORE scanning.
