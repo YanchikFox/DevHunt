@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 
 test.describe("Auth pages smoke (CI-stable)", () => {
   test("login page renders", async ({ page }) => {
-    await page.goto("/ru/login")
+    await page.goto("/pl/login")
     await expect(page.locator("form")).toBeVisible()
     await expect(page.locator("#email")).toBeVisible()
     await expect(page.locator("#password")).toBeVisible()
@@ -10,7 +10,7 @@ test.describe("Auth pages smoke (CI-stable)", () => {
   })
 
   test("login validates invalid email client-side", async ({ page }) => {
-    await page.goto("/ru/login")
+    await page.goto("/pl/login")
     await page.fill("#email", "invalid-email")
     await page.fill("#password", "password123")
     await page.click('button[type="submit"]')
@@ -25,7 +25,7 @@ test.describe("Auth pages smoke (CI-stable)", () => {
   })
 
   test("register page renders", async ({ page }) => {
-    await page.goto("/ru/register")
+    await page.goto("/pl/register")
     await expect(page.locator("form")).toBeVisible()
     await expect(page.locator("#fullName")).toBeVisible()
     await expect(page.locator("#email")).toBeVisible()
@@ -35,13 +35,13 @@ test.describe("Auth pages smoke (CI-stable)", () => {
   })
 
   test("register validates password mismatch client-side", async ({ page }) => {
-    await page.goto("/ru/register")
+    await page.goto("/pl/register")
     await page.fill("#fullName", "John Doe")
     await page.fill("#email", "john@example.com")
     await page.fill("#password", "Password1!")
     await page.fill("#confirmPassword", "Password2!")
     await page.click('button[type="submit"]')
 
-    await expect(page.getByText("Hasła nie są identyczne")).toBeVisible()
+    await expect(page.getByText("Hasła nie pasują do siebie")).toBeVisible()
   })
 })
