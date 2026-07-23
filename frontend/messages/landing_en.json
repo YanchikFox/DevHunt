@@ -1,0 +1,24 @@
+{
+    "landing": {
+        "ai": {
+            "badge": "AI-Powered Development",
+            "title": "Your Intelligent Co-Pilot",
+            "description": "Accelerate your development workflow with advanced AI tools integrated directly into your project management cycle.",
+            "featureArchitectureTitle": "Smart Architecture Planning",
+            "featureArchitectureDesc": "Describe your idea, and our AI Architect will generate a complete tech stack, database schema, and project roadmap in seconds.",
+            "featureReviewTitle": "Automated Code Analysis",
+            "featureReviewDesc": "Get instant feedback on your code quality, security vulnerabilities, and performance optimizations.",
+            "featureMatchingTitle": "Intelligent Team Matching",
+            "featureMatchingDesc": "Our AI analyzes your coding style and experience to match you with teams that complement your skills perfectly.",
+            "demoUser": "User",
+            "demoAi": "DevHunt AI",
+            "demoUserMessage": "I need a scalable architecture for a real-time chat app using Next.js.",
+            "demoAiResponse": "I recommend the following architecture for scalability and real-time performance:",
+            "demoFrontend": "Frontend",
+            "demoFrontendStack": "Next.js 14 + Tailwind CSS + Zustand",
+            "demoRealtime": "Real-time",
+            "demoRealtimeStack": "Socket.io or Supabase Realtime",
+            "demoGeneratin": "Generating project structure..."
+        }
+    }
+}

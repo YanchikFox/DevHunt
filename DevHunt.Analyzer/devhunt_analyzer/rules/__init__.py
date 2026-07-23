@@ -1,0 +1,19 @@
+# Import all rule modules to trigger @register decorators
+from devhunt_analyzer.rules import csharp_rules  # noqa: F401
+from devhunt_analyzer.rules import typescript_rules  # noqa: F401
+from devhunt_analyzer.rules import security_rules  # noqa: F401
+from devhunt_analyzer.rules import python_rules  # noqa: F401
+from devhunt_analyzer.rules import java_rules  # noqa: F401
+from devhunt_analyzer.rules import go_rules  # noqa: F401
+from devhunt_analyzer.rules import rust_rules  # noqa: F401
+from devhunt_analyzer.rules import php_rules  # noqa: F401
+from devhunt_analyzer.rules import ruby_rules  # noqa: F401
+from devhunt_analyzer.rules import kotlin_rules  # noqa: F401
+from devhunt_analyzer.rules import swift_rules  # noqa: F401
+from devhunt_analyzer.rules import c_cpp_rules  # noqa: F401
+from devhunt_analyzer.rules import docker_rules  # noqa: F401
+from devhunt_analyzer.rules import yaml_config_rules  # noqa: F401
+from devhunt_analyzer.rules import react_nextjs_rules  # noqa: F401
+from devhunt_analyzer.rules import aspnet_efcore_rules  # noqa: F401
+from devhunt_analyzer.rules import django_flask_rules  # noqa: F401
+from devhunt_analyzer.rules import spring_rules  # noqa: F401

@@ -1,0 +1,116 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devhunt-core-api
+  namespace: devhunt
+  labels:
+    app: devhunt-core-api
+    tier: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: devhunt-core-api
+  template:
+    metadata:
+      labels:
+        app: devhunt-core-api
+        tier: backend
+    spec:
+      serviceAccountName: devhunt-core-api
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      containers:
+        - name: core-api
+          image: devhunt/core-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: "Production"
+            - name: ASPNETCORE_URLS
+              value: "http://+:8080"
+            - name: ConnectionStrings__DefaultConnection
+              valueFrom:
+                secretKeyRef:
+                  name: devhunt-secrets
+                  key: database-connection
+            - name: ConnectionStrings__RedisConnection
+              valueFrom:
+                secretKeyRef:
+                  name: devhunt-secrets
+                  key: redis-connection
+            - name: Jwt__Key
+              valueFrom:
+                secretKeyRef:
+                  name: devhunt-secrets
+                  key: jwt-key
+            - name: Jwt__Issuer
+              value: "DevHunt.AuthService"
+            - name: Jwt__Audience
+              value: "DevHunt.CoreApi"
+            - name: KeyVault__Uri
+              valueFrom:
+                secretKeyRef:
+                  name: devhunt-secrets
+                  key: keyvault-uri
+            - name: Elasticsearch__Uri
+              value: "http://elasticsearch:9200"
+            - name: Jaeger__AgentHost
+              value: "jaeger"
+            - name: Jaeger__AgentPort
+              value: "6831"
+            - name: Jaeger__ServiceName
+              value: "DevHunt.CoreApi"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devhunt-core-api
+  namespace: devhunt
+  labels:
+    app: devhunt-core-api
+spec:
+  type: ClusterIP
+  ports:
+    - port: 8080
+      targetPort: 8080
+      protocol: TCP
+      name: http
+  selector:
+    app: devhunt-core-api

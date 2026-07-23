@@ -1,0 +1,68 @@
+name: Dockerfile Lint (Hadolint)
+
+on:
+  # Removed push trigger to save CI minutes
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - '**/Dockerfile'
+      - '**/Dockerfile.*'
+      - '.hadolint.yaml'
+  workflow_dispatch: # Manual trigger
+    inputs:
+      verbose_logs:
+        description: 'Upload job logs as artifact'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  hadolint:
+    name: Lint Dockerfiles
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Run Hadolint on all Dockerfiles
+        run: |
+          mkdir -p logs
+          set -o pipefail
+          {
+            echo "Finding all Dockerfiles..."
+            find . -name "Dockerfile*" -not -path "./.git/*" | while read dockerfile; do
+              echo "Linting: $dockerfile"
+              docker run --rm -i hadolint/hadolint < "$dockerfile" || true
+            done
+          } 2>&1 | tee logs/hadolint-all.log
+
+      - name: Run Hadolint with SARIF output
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ./DevHunt.CoreApi/Dockerfile
+          config: .hadolint.yaml
+          format: sarif
+          output-file: hadolint-results.sarif
+          failure-threshold: warning
+          recursive: true
+        continue-on-error: true
+
+      - name: Upload Hadolint SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && github.event_name != 'pull_request'
+        continue-on-error: true
+        with:
+          sarif_file: hadolint-results.sarif
+          wait-for-processing: false
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: hadolint-logs
+          path: |
+            logs/
+            hadolint-results.sarif
+          if-no-files-found: ignore
+          retention-days: 7

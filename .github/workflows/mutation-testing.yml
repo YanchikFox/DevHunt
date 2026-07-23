@@ -1,0 +1,153 @@
+name: Mutation Testing
+
+on:
+  # Only manual trigger - mutation testing is slow and expensive
+  workflow_dispatch:
+    inputs:
+      verbose_logs:
+        description: 'Upload job logs as artifact'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: mutation-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  stryker-dotnet:
+    name: Stryker.NET Mutation Testing
+    runs-on: ubuntu-latest
+    # Only run on main branch pushes or manual triggers (too slow for every PR)
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install Stryker.NET
+        run: dotnet tool install -g dotnet-stryker
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Run Stryker on CoreApi
+        working-directory: ./DevHunt.CoreApi.Tests
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          dotnet stryker \
+            --project "../DevHunt.CoreApi/DevHunt.CoreApi.csproj" \
+            --reporter html \
+            --reporter json \
+            --reporter markdown \
+            --threshold-high 80 \
+            --threshold-low 60 \
+            --break-at 40 \
+            --concurrency 4 \
+            --output StrykerOutput \
+            2>&1 | tee ${{ github.workspace }}/logs/stryker-coreapi.log
+        continue-on-error: true
+
+      - name: Run Stryker on AuthService
+        working-directory: ./DevHunt.AuthService.Tests
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          dotnet stryker \
+            --project "../DevHunt.AuthService/DevHunt.AuthService.csproj" \
+            --reporter html \
+            --reporter json \
+            --reporter markdown \
+            --threshold-high 80 \
+            --threshold-low 60 \
+            --break-at 40 \
+            --concurrency 4 \
+            --output StrykerOutput \
+            2>&1 | tee ${{ github.workspace }}/logs/stryker-auth.log
+        continue-on-error: true
+
+      - name: Upload Stryker reports
+        uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: stryker-dotnet-reports
+          path: |
+            **/StrykerOutput/**
+            ${{ github.workspace }}/logs/
+          retention-days: 30
+
+  stryker-frontend:
+    name: Stryker.js Mutation Testing (Frontend)
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Install Stryker
+        working-directory: ./frontend
+        run: npm install --no-save @stryker-mutator/core @stryker-mutator/vitest-runner @stryker-mutator/typescript-checker
+
+      - name: Run Stryker
+        working-directory: ./frontend
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          npx stryker run 2>&1 | tee ${{ github.workspace }}/logs/stryker-frontend.log
+        continue-on-error: true
+
+      - name: Upload Stryker report
+        uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: stryker-frontend-report
+          path: |
+            frontend/reports/mutation/
+            ${{ github.workspace }}/logs/
+          retention-days: 30
+
+  mutation-summary:
+    name: Mutation Testing Summary
+    runs-on: ubuntu-latest
+    needs: [stryker-dotnet, stryker-frontend]
+    if: always()
+    
+    steps:
+      - name: Download all reports
+        uses: actions/download-artifact@v5
+        with:
+          pattern: stryker-*
+          merge-multiple: true
+
+      - name: Generate summary
+        run: |
+          echo "## 🧬 Mutation Testing Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Mutation testing completed. Check artifacts for detailed reports." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Thresholds" >> $GITHUB_STEP_SUMMARY
+          echo "- 🟢 High: 80%+" >> $GITHUB_STEP_SUMMARY
+          echo "- 🟡 Low: 60-80%" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔴 Break: <40%" >> $GITHUB_STEP_SUMMARY

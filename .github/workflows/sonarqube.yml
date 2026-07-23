@@ -1,0 +1,90 @@
+name: SonarCloud Analysis
+
+on:
+  workflow_dispatch:
+    inputs:
+      verbose_logs:
+        description: 'Upload job logs as artifact'
+        required: false
+        type: boolean
+        default: false
+  # Uncomment to enable auto-triggers:
+  # push:
+  #   branches: [ main, develop ]
+  # pull_request:
+  #   branches: [ main, develop ]
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  sonarcloud:
+    name: SonarCloud Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Full history for blame analysis
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Java (required for SonarScanner)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install .NET SonarScanner
+        run: dotnet tool install --global dotnet-sonarscanner
+
+      - name: Rename sonar-project.properties (not supported by dotnet scanner)
+        run: mv sonar-project.properties sonar-project.properties.bak
+
+      - name: Restore .NET dependencies
+        run: dotnet restore
+
+      - name: Install frontend dependencies
+        working-directory: ./frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: ./frontend
+        run: npm run build
+
+      - name: Begin SonarCloud analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: |
+          dotnet sonarscanner begin \
+            /k:"YanchikFox_DevHunt" \
+            /o:"yanchikfox" \
+            /d:sonar.host.url="https://sonarcloud.io" \
+            /d:sonar.token="${SONAR_TOKEN}" \
+            /d:sonar.exclusions="**/node_modules/**,**/bin/**,**/obj/**,**/.next/**,**/Migrations/**,**/*.Designer.cs,**/wwwroot/**,**/stories/**,**/documentation/**,**/scripts/**,**/tests/**,**/*.Tests/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/*.spec.tsx,**/e2e/**,**/e2e-full/**,**/*.json,**/*.md,**/*.config.ts,**/*.config.js,**/contract/**" \
+            /d:sonar.test.exclusions="**/node_modules/**,**/*.test.ts,**/*.test.tsx,**/*.spec.ts,**/tests/**,**/*.Tests/**" \
+            /d:sonar.coverage.exclusions="**/*.test.ts,**/*.test.tsx,**/tests/**,**/*.Tests/**"
+
+      - name: Build .NET solution
+        run: dotnet build --no-restore --configuration Release
+
+      - name: End SonarCloud analysis
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: dotnet sonarscanner end /d:sonar.token="${SONAR_TOKEN}"
+
+      - name: Restore sonar-project.properties
+        if: always()
+        run: mv sonar-project.properties.bak sonar-project.properties || true

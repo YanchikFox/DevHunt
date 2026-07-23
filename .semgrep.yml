@@ -1,0 +1,12 @@
+rules:
+  - id: high-risk-functions
+    message: "High-risk function detected"
+    severity: ERROR
+    languages: [javascript, typescript, python, csharp]
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: exec(...)
+          - pattern: System.Security.Cryptography.MD5.Create(...)
+    metadata:
+      category: security

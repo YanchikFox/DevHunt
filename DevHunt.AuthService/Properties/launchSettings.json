@@ -1,0 +1,27 @@
+﻿{
+  "$schema": "https://json.schemastore.org/launchsettings.json",
+  "profiles": {
+    "http": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "http://localhost:7001",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "CONNECTIONSTRINGS__REDISCONNECTION": "localhost:6379",
+        "OPENOBSERVE__OTLPTRACESENDPOINT": "http://localhost:5080/api/default/otlp/v1/traces"
+      }
+    },
+    "https": {
+      "commandName": "Project",
+      "dotnetRunMessages": true,
+      "launchBrowser": false,
+      "applicationUrl": "https://localhost:7004;http://localhost:7001",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "CONNECTIONSTRINGS__REDISCONNECTION": "localhost:6379",
+        "OPENOBSERVE__OTLPTRACESENDPOINT": "http://localhost:5080/api/default/otlp/v1/traces"
+      }
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "devhunt",
+      "credentials": [
+        {
+          "accessKey": "SET_OBJECT_STORAGE_ACCESS_KEY_IN_ENV",
+          "secretKey": "SET_OBJECT_STORAGE_SECRET_KEY_IN_ENV"
+        }
+      ],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    }
+  ]
+}

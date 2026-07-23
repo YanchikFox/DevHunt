@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: devhunt-frontend
+  namespace: devhunt
+  labels:
+    app: devhunt-frontend
+    tier: frontend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: devhunt-frontend
+  template:
+    metadata:
+      labels:
+        app: devhunt-frontend
+        tier: frontend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        fsGroup: 1001
+      containers:
+        - name: frontend
+          image: devhunt/frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: NEXT_PUBLIC_API_URL
+              value: "https://api.devhunt.io"
+            - name: NEXT_PUBLIC_AUTH_URL
+              value: "https://auth.devhunt.io"
+            - name: NEXT_PUBLIC_APP_URL
+              value: "https://devhunt.io"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: devhunt-frontend
+  namespace: devhunt
+  labels:
+    app: devhunt-frontend
+spec:
+  type: ClusterIP
+  ports:
+    - port: 3000
+      targetPort: 3000
+      protocol: TCP
+      name: http
+  selector:
+    app: devhunt-frontend

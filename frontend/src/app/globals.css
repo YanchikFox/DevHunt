@@ -1,0 +1,341 @@
+@import url("https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Geist+Mono:wght@100..900&family=Instrument+Serif:ital@0;1&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Surfaces — warm neutral, hue 90 */
+    --background: 0.99 0.003 90;
+    --foreground: 0.18 0.008 90;
+
+    --card: 1 0 0;
+    --card-foreground: 0.18 0.008 90;
+
+    --popover: 1 0 0;
+    --popover-foreground: 0.18 0.008 90;
+
+    /* Brand — indigo accent */
+    --primary: 0.58 0.22 275;
+    --primary-foreground: 1 0 0;
+
+    /* Neutral surfaces */
+    --secondary: 0.97 0.004 90;
+    --secondary-foreground: 0.18 0.008 90;
+
+    --muted: 0.97 0.004 90;
+    --muted-foreground: 0.50 0.008 90;
+
+    --accent: 0.95 0.005 90;
+    --accent-foreground: 0.18 0.008 90;
+
+    /* Semantic */
+    --destructive: 0.62 0.22 25;
+    --destructive-foreground: 1 0 0;
+
+    /* Borders & inputs */
+    --border: 0.90 0.005 90;
+    --input: 0.90 0.005 90;
+    --ring: 0.58 0.22 275;
+
+    --radius: 0.625rem; /* 10px */
+
+    /* Extended surface tokens */
+    --bg-elevated: 1 0 0;
+    --bg-subtle: 0.97 0.004 90;
+    --bg-hover: 0.95 0.005 90;
+    --border-strong: 0.82 0.006 90;
+    --text-subtle: 0.65 0.008 90;
+
+    /* Status colors */
+    --status-active: 0.65 0.17 150;
+    --status-recruiting: 0.75 0.15 75;
+    --status-completed: 0.50 0.008 90;
+    --status-draft: 0.65 0.15 240;
+
+    /* Semantic UI colors */
+    --success: 0.65 0.17 150;
+    --success-foreground: 1 0 0;
+    --warning: 0.75 0.15 75;
+    --warning-foreground: 0.18 0.008 90;
+    --info: 0.65 0.15 240;
+    --info-foreground: 1 0 0;
+
+    /* Layout dimensions */
+    --sidebar-width: 240px;
+    --header-height: 60px;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.04);
+    --shadow-md: 0 4px 12px oklch(0 0 0 / 0.06), 0 1px 2px oklch(0 0 0 / 0.04);
+    --shadow-lg: 0 12px 32px oklch(0 0 0 / 0.1), 0 4px 8px oklch(0 0 0 / 0.04);
+  }
+
+  .dark {
+    /* Surfaces — deep warm-gray, hue 90 */
+    --background: 0.15 0.005 90;
+    --foreground: 0.96 0.004 90;
+
+    --card: 0.19 0.005 90;
+    --card-foreground: 0.96 0.004 90;
+
+    --popover: 0.19 0.005 90;
+    --popover-foreground: 0.96 0.004 90;
+
+    /* Brand — slightly brighter for dark backgrounds */
+    --primary: 0.66 0.22 275;
+    --primary-foreground: 1 0 0;
+
+    /* Neutral surfaces */
+    --secondary: 0.22 0.006 90;
+    --secondary-foreground: 0.96 0.004 90;
+
+    --muted: 0.22 0.006 90;
+    --muted-foreground: 0.68 0.006 90;
+
+    --accent: 0.22 0.006 90;
+    --accent-foreground: 0.96 0.004 90;
+
+    /* Semantic */
+    --destructive: 0.50 0.22 25;
+    --destructive-foreground: 0.96 0.004 90;
+
+    /* Borders & inputs */
+    --border: 0.26 0.006 90;
+    --input: 0.26 0.006 90;
+    --ring: 0.66 0.22 275;
+
+    /* Extended surface tokens */
+    --bg-elevated: 0.19 0.005 90;
+    --bg-subtle: 0.17 0.005 90;
+    --bg-hover: 0.22 0.006 90;
+    --border-strong: 0.34 0.006 90;
+    --text-subtle: 0.52 0.006 90;
+
+    /* Status colors (dark mode) */
+    --status-active: 0.72 0.17 150;
+    --status-recruiting: 0.80 0.15 75;
+    --status-completed: 0.68 0.006 90;
+    --status-draft: 0.72 0.15 240;
+
+    /* Semantic UI colors (dark mode) */
+    --success: 0.72 0.17 150;
+    --success-foreground: 0.15 0.005 90;
+    --warning: 0.80 0.15 75;
+    --warning-foreground: 0.15 0.005 90;
+    --info: 0.72 0.15 240;
+    --info-foreground: 0.15 0.005 90;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    font-feature-settings: "cv11", "ss01", "rlig" 1, "calt" 1;
+    font-size: 1rem;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4 {
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+
+  img {
+    content-visibility: auto;
+  }
+}
+
+@layer components {
+  /* Mono caption label */
+  .caption {
+    font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: oklch(var(--muted-foreground));
+  }
+
+  /* Chip / badge */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 9px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid oklch(var(--border));
+    background: oklch(var(--bg-subtle));
+    color: oklch(var(--muted-foreground));
+    font-family: "Geist Mono", ui-monospace, monospace;
+    letter-spacing: 0.02em;
+  }
+
+  .chip-accent {
+    background: oklch(var(--primary) / 0.12);
+    color: oklch(var(--primary));
+    border-color: transparent;
+  }
+
+  .chip-success {
+    background: oklch(var(--success) / 0.15);
+    color: oklch(var(--success));
+    border-color: transparent;
+  }
+
+  .chip-warning {
+    background: oklch(var(--warning) / 0.15);
+    color: oklch(var(--warning));
+    border-color: transparent;
+  }
+
+  .chip-danger {
+    background: oklch(var(--destructive) / 0.15);
+    color: oklch(var(--destructive));
+    border-color: transparent;
+  }
+
+  /* AI shimmer border */
+  @keyframes ai-shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  .ai-border {
+    position: relative;
+    border-radius: var(--radius);
+  }
+
+  .ai-border::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      120deg,
+      oklch(var(--primary)) 0%,
+      oklch(0.75 0.18 310) 30%,
+      oklch(0.70 0.15 200) 60%,
+      oklch(var(--primary)) 100%
+    );
+    background-size: 200% 200%;
+    animation: ai-shimmer 6s ease infinite;
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .ai-glow {
+    background: linear-gradient(
+      135deg,
+      oklch(var(--primary) / 0.06),
+      oklch(var(--card)) 60%
+    );
+  }
+
+  /* Striped placeholder for missing imagery */
+  .placeholder-stripe {
+    background-image: repeating-linear-gradient(
+      45deg,
+      oklch(var(--bg-subtle)),
+      oklch(var(--bg-subtle)) 8px,
+      oklch(var(--bg-hover)) 8px,
+      oklch(var(--bg-hover)) 16px
+    );
+  }
+}
+
+@layer utilities {
+  .font-sans {
+    font-family: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif;
+  }
+
+  .font-mono {
+    font-family: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+
+  .font-serif {
+    font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  }
+
+  .font-display {
+    font-family: "Instrument Serif", ui-serif, Georgia, serif;
+  }
+
+  .font-emoji {
+    font-family: "Geist", ui-sans-serif, system-ui, -apple-system, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji", "Twemoji Mozilla";
+  }
+
+  .text-subtle {
+    color: oklch(var(--text-subtle));
+  }
+
+  /* Animations */
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  .pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
+
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      oklch(var(--muted)) 0%,
+      oklch(var(--muted-foreground) / 0.3) 50%,
+      oklch(var(--muted)) 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: oklch(var(--border)); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: oklch(var(--border-strong)); }
+
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Grid pattern background */
+  .bg-grid-pattern {
+    background-image:
+      linear-gradient(to right, currentColor 1px, transparent 1px),
+      linear-gradient(to bottom, currentColor 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  /* Performance */
+  .will-change-transform { will-change: transform; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

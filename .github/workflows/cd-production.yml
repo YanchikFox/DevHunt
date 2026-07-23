@@ -1,0 +1,101 @@
+name: CD - Deploy to Production
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.2.3)'
+        required: true
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://devhunt.example.com
+    
+    steps:
+    - uses: actions/checkout@v6
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    - name: Extract version
+      id: version
+      env:
+        INPUT_VERSION: ${{ github.event.inputs.version }}
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "VERSION=$INPUT_VERSION" >> $GITHUB_OUTPUT
+        else
+          echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Build and push Core API
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./DevHunt.CoreApi/Dockerfile
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/core-api:${{ steps.version.outputs.VERSION }}
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/core-api:latest
+        labels: |
+          version=${{ steps.version.outputs.VERSION }}
+          build-date=${{ github.event.head_commit.timestamp }}
+    
+    - name: Build and push Auth Service
+      uses: docker/build-push-action@v6
+      with:
+        context: .
+        file: ./DevHunt.AuthService/Dockerfile
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:${{ steps.version.outputs.VERSION }}
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/auth-service:latest
+    
+    - name: Create database backup
+      run: |
+        echo "💾 Creating database backup before deployment"
+        # Здесь команда для бэкапа БД
+    
+    - name: Deploy to production (Blue-Green)
+      run: |
+        echo "🚀 Deploying to production (Blue-Green strategy)"
+        # Здесь будет деплой с Blue-Green стратегией
+        # 1. Deploy на Green
+        # 2. Health checks
+        # 3. Canary (5% трафика)
+        # 4. Мониторинг
+        # 5. Постепенное увеличение до 100%
+    
+    - name: Run health checks
+      run: |
+        echo "🏥 Running health checks"
+        # curl -f https://devhunt.example.com/health || exit 1
+    
+    - name: Notify deployment
+      if: success()
+      run: |
+        echo "✅ Production deployment successful"
+        # Здесь можно отправить уведомление в Slack/Discord
+

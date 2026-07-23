@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="DevHunt.AuthService/DevHunt.AuthService.csproj" />
+  <Project Path="DevHunt.CoreApi/DevHunt.CoreApi.csproj" />
+  <Project Path="DevHunt.Infrastructure/DevHunt.Infrastructure.csproj" />
+</Solution>

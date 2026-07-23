@@ -1,0 +1,67 @@
+{
+  "metadata": [
+    {
+      "includePrivateMembers": true,
+      "src": [
+        {
+          "files": [
+            "DevHunt.CoreApi/bin/Release/net10.0/DevHunt.CoreApi.dll",
+            "DevHunt.CoreApi/bin/Release/net10.0/DevHunt.CoreApi.xml"
+          ],
+          "src": "../.."
+        },
+        {
+          "files": [
+            "DevHunt.AuthService/bin/Release/net10.0/DevHunt.AuthService.dll",
+            "DevHunt.AuthService/bin/Release/net10.0/DevHunt.AuthService.xml"
+          ],
+          "src": "../.."
+        },
+        {
+          "files": [
+            "DevHunt.Infrastructure/bin/Release/net10.0/DevHunt.Infrastructure.dll",
+            "DevHunt.Infrastructure/bin/Release/net10.0/DevHunt.Infrastructure.xml"
+          ],
+          "src": "../.."
+        }
+      ],
+      "dest": "api"
+    }
+  ],
+  "build": {
+    "content": [
+      {
+        "files": [
+          "api/**.yml"
+        ]
+      },
+      {
+        "files": [
+          "index.md",
+          "toc.yml"
+        ]
+      }
+    ],
+    "resource": [
+      {
+        "files": [
+          "assets/**"
+        ]
+      }
+    ],
+    "dest": "../.docfx-output",
+    "globalMetadata": {
+      "_appTitle": "DevHunt Backend API",
+      "_appName": "DevHunt Backend",
+      "_appFooter": "DevHunt",
+      "_enableSearch": true
+    },
+    "template": [
+      "default",
+      "modern"
+    ],
+    "xrefService": [
+      "https://xref.docs.microsoft.com/query?uid={uid}"
+    ]
+  }
+}

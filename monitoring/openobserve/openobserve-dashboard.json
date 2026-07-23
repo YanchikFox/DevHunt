@@ -1,0 +1,208 @@
+{
+  "title": "DevHunt Services",
+  "description": "Per-service request rate, error rate, latency and recent errors",
+  "role": "",
+  "tabs": [
+    {
+      "tabId": "tab-overview",
+      "name": "Overview",
+      "panels": [
+        {
+          "id": "svc-summary",
+          "type": "table",
+          "title": "Service Summary",
+          "description": "Requests, errors and latency per service",
+          "config": { "show_legends": false },
+          "queryType": "sql",
+          "queries": [
+            {
+              "query": "SELECT service_name, count(*) AS requests, sum(CASE WHEN http_response_status_code >= 400 THEN 1 ELSE 0 END) AS errors, round(sum(CASE WHEN http_response_status_code >= 400 THEN 1 ELSE 0 END) * 100.0 / count(*), 1) AS error_pct, round(avg(duration) / 1000, 0) AS avg_ms, round(percentile(duration, 95) / 1000, 0) AS p95_ms FROM default WHERE span_kind = 'SPAN_KIND_SERVER' GROUP BY service_name ORDER BY requests DESC",
+              "customQuery": true,
+              "config": { "promql_legend": "" },
+              "fields": {
+                "stream": "default",
+                "stream_type": "traces",
+                "x": [],
+                "y": [],
+                "filter": { "filterType": "group", "logicalOperator": "AND", "conditions": [] }
+              }
+            }
+          ],
+          "layout": { "x": 0, "y": 0, "w": 12, "h": 5, "i": 0 }
+        },
+        {
+          "id": "req-rate",
+          "type": "line",
+          "title": "Request Rate by Service (req / 5 min)",
+          "description": "",
+          "config": { "show_legends": true },
+          "queryType": "sql",
+          "queries": [
+            {
+              "query": "SELECT histogram(start_time, '5 minute') AS time, service_name, count(*) AS requests FROM default WHERE span_kind = 'SPAN_KIND_SERVER' GROUP BY time, service_name ORDER BY time",
+              "customQuery": true,
+              "config": { "promql_legend": "" },
+              "fields": {
+                "stream": "default",
+                "stream_type": "traces",
+                "x": [{ "label": "time", "alias": "time", "column": "time", "color": null }],
+                "y": [{ "label": "requests", "alias": "requests", "column": "requests", "color": null }],
+                "breakdown": [{ "label": "service_name", "alias": "service_name", "column": "service_name", "color": null }],
+                "filter": { "filterType": "group", "logicalOperator": "AND", "conditions": [] }
+              }
+            }
+          ],
+          "layout": { "x": 0, "y": 5, "w": 6, "h": 5, "i": 1 }
+        },
+        {
+          "id": "error-rate",
+          "type": "line",
+          "title": "Error Rate by Service (4xx+5xx / 5 min)",
+          "description": "",
+          "config": { "show_legends": true },
+          "queryType": "sql",
+          "queries": [
+            {
+              "query": "SELECT histogram(start_time, '5 minute') AS time, service_name, count(*) AS errors FROM default WHERE span_kind = 'SPAN_KIND_SERVER' AND http_response_status_code >= 400 GROUP BY time, service_name ORDER BY time",
+              "customQuery": true,
+              "config": { "promql_legend": "" },
+              "fields": {
+                "stream": "default",
+                "stream_type": "traces",
+                "x": [{ "label": "time", "alias": "time", "column": "time", "color": null }],
+                "y": [{ "label": "errors", "alias": "errors", "column": "errors", "color": null }],
+                "breakdown": [{ "label": "service_name", "alias": "service_name", "column": "service_name", "color": null }],
+                "filter": { "filterType": "group", "logicalOperator": "AND", "conditions": [] }
+              }
+            }
+          ],
+          "layout": { "x": 6, "y": 5, "w": 6, "h": 5, "i": 2 }
+        },
+        {
+          "id": "p95-latency",
+          "type": "line",
+          "title": "P95 Latency by Service (ms)",
+          "description": "",
+          "config": { "show_legends": true },
+          "queryType": "sql",
+          "queries": [
+            {
+              "query": "SELECT histogram(start_time, '5 minute') AS time, service_name, round(percentile(duration, 95) / 1000, 0) AS p95_ms FROM default WHERE span_kind = 'SPAN_KIND_SERVER' GROUP BY time, service_name ORDER BY time",
+              "customQuery": true,
+              "config": { "promql_legend": "" },
+              "fields": {
+                "stream": "default",
+                "stream_type": "traces",
+                "x": [{ "label": "time", "alias": "time", "column": "time", "color": null }],
+                "y": [{ "label": "p95_ms", "alias": "p95_ms", "column": "p95_ms", "color": null }],
+                "breakdown": [{ "label": "service_name", "alias": "service_name", "column": "service_name", "color": null }],
+                "filter": { "filterType": "group", "logicalOperator": "AND", "conditions": [] }
+              }
+            }
+          ],
+          "layout": { "x": 0, "y": 10, "w": 12, "h": 5, "i": 3 }
+        },
+        {
+          "id": "recent-errors",
+          "type": "table",
+          "title": "Recent Errors (last 50)",
+          "description": "HTTP 4xx / 5xx from all services",
+          "config": { "show_legends": false },
+          "queryType": "sql",
+          "queries": [
+            {
+              "query": "SELECT start_time, service_name, operation_name, http_response_status_code, http_request_path, round(duration / 1000, 0) AS duration_ms, trace_id FROM default WHERE http_response_status_code >= 400 ORDER BY start_time DESC LIMIT 50",
+              "customQuery": true,
+              "config": { "promql_legend": "" },
+              "fields": {
+                "stream": "default",
+                "stream_type": "traces",
+                "x": [],
+                "y": [],
+                "filter": { "filterType": "group", "logicalOperator": "AND", "conditions": [] }
+              }
+            }
+          ],
+          "layout": { "x": 0, "y": 15, "w": 12, "h": 6, "i": 4 }
+        }
+      ]
+    },
+    {
+      "tabId": "tab-logs",
+      "name": "Logs",
+      "panels": [
+        {
+          "id": "log-errors-by-svc",
+          "type": "bar",
+          "title": "Errors per Service (log level = error)",
+          "description": "",
+          "config": { "show_legends": false },
+          "queryType": "sql",
+          "queries": [
+            {
+              "query": "SELECT service, count(*) AS errors FROM logs WHERE _l = 'Error' OR _l = 'error' OR _l = 'ERROR' OR _l = 'Fatal' OR _l = 'Critical' GROUP BY service ORDER BY errors DESC",
+              "customQuery": true,
+              "config": { "promql_legend": "" },
+              "fields": {
+                "stream": "logs",
+                "stream_type": "logs",
+                "x": [{ "label": "service", "alias": "service", "column": "service", "color": null }],
+                "y": [{ "label": "errors", "alias": "errors", "column": "errors", "color": null }],
+                "filter": { "filterType": "group", "logicalOperator": "AND", "conditions": [] }
+              }
+            }
+          ],
+          "layout": { "x": 0, "y": 0, "w": 6, "h": 5, "i": 5 }
+        },
+        {
+          "id": "log-volume",
+          "type": "line",
+          "title": "Log Volume by Service (5 min)",
+          "description": "",
+          "config": { "show_legends": true },
+          "queryType": "sql",
+          "queries": [
+            {
+              "query": "SELECT histogram(_timestamp, '5 minute') AS time, service, count(*) AS count FROM logs GROUP BY time, service ORDER BY time",
+              "customQuery": true,
+              "config": { "promql_legend": "" },
+              "fields": {
+                "stream": "logs",
+                "stream_type": "logs",
+                "x": [{ "label": "time", "alias": "time", "column": "time", "color": null }],
+                "y": [{ "label": "count", "alias": "count", "column": "count", "color": null }],
+                "breakdown": [{ "label": "service", "alias": "service", "column": "service", "color": null }],
+                "filter": { "filterType": "group", "logicalOperator": "AND", "conditions": [] }
+              }
+            }
+          ],
+          "layout": { "x": 6, "y": 0, "w": 6, "h": 5, "i": 6 }
+        },
+        {
+          "id": "recent-log-errors",
+          "type": "table",
+          "title": "Recent Error Logs",
+          "description": "",
+          "config": { "show_legends": false },
+          "queryType": "sql",
+          "queries": [
+            {
+              "query": "SELECT _timestamp, service, _m AS message, _tr AS trace_id FROM logs WHERE _l = 'Error' OR _l = 'Fatal' OR _l = 'Critical' ORDER BY _timestamp DESC LIMIT 50",
+              "customQuery": true,
+              "config": { "promql_legend": "" },
+              "fields": {
+                "stream": "logs",
+                "stream_type": "logs",
+                "x": [],
+                "y": [],
+                "filter": { "filterType": "group", "logicalOperator": "AND", "conditions": [] }
+              }
+            }
+          ],
+          "layout": { "x": 0, "y": 5, "w": 12, "h": 6, "i": 7 }
+        }
+      ]
+    }
+  ],
+  "variables": { "list": [] }
+}

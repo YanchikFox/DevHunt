@@ -1,0 +1,24 @@
+{
+    "landing": {
+        "ai": {
+            "badge": "Rozwój wspierany przez AI",
+            "title": "Twój Inteligentny Pilot",
+            "description": "Przyspiesz proces tworzenia oprogramowania dzięki zaawansowanym narzędziom AI zintegrowanym bezpośrednio z cyklem zarządzania projektem.",
+            "featureArchitectureTitle": "Inteligentne Planowanie Architektury",
+            "featureArchitectureDesc": "Opisz swój pomysł, a nasz AI Architekt wygeneruje kompletny stos technologiczny, schemat bazy danych i mapę drogową projektu w kilka sekund.",
+            "featureReviewTitle": "Automatyczna Analiza Kodu",
+            "featureReviewDesc": "Otrzymuj natychmiastowe informacje zwrotne na temat jakości kodu, luk w zabezpieczeniach i optymalizacji wydajności.",
+            "featureMatchingTitle": "Inteligentne Dopasowanie Zespołu",
+            "featureMatchingDesc": "Nasze AI analizuje Twój styl kodowania i doświadczenie, aby dopasować Cię do zespołów, które idealnie uzupełniają Twoje umiejętności.",
+            "demoUser": "Użytkownik",
+            "demoAi": "DevHunt AI",
+            "demoUserMessage": "Potrzebuję skalowalnej architektury dla aplikacji czatu w czasie rzeczywistym używając Next.js.",
+            "demoAiResponse": "Zalecam następującą architekturę dla skalowalności i wydajności w czasie rzeczywistym:",
+            "demoFrontend": "Frontend",
+            "demoFrontendStack": "Next.js 14 + Tailwind CSS + Zustand",
+            "demoRealtime": "Czas rzeczywisty",
+            "demoRealtimeStack": "Socket.io lub Supabase Realtime",
+            "demoGeneratin": "Generowanie struktury projektu..."
+        }
+    }
+}

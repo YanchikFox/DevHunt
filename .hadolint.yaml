@@ -1,0 +1,42 @@
+# Hadolint Configuration
+# https://github.com/hadolint/hadolint
+
+# Fail on these levels: error, warning, info, style
+failure-threshold: warning
+
+# Trustedregistries
+trustedRegistries:
+  - docker.io
+  - mcr.microsoft.com
+  - ghcr.io
+
+# Ignored rules
+ignored:
+  # DL3008: Pin versions in apt get install
+  # We use --no-install-recommends but don't always pin versions for security updates
+  # - DL3008
+  
+  # DL3018: Pin versions in apk add
+  # - DL3018
+
+# Override severity
+override:
+  warning:
+    - DL3008  # Pin versions in apt-get install
+    - DL3018  # Pin versions in apk add
+    - DL3059  # Multiple consecutive RUN instructions (sometimes intentional for caching)
+
+  info:
+    - DL3006  # Always tag the version of an image explicitly
+
+# Label schema (optional - enforce required labels)
+label-schema:
+  maintainer: text
+  org.opencontainers.image.source: url
+  org.opencontainers.image.description: text
+
+# Strict mode (treat warnings as errors)
+strict-labels: false
+
+# Format output
+format: tty

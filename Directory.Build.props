@@ -1,0 +1,24 @@
+<Project>
+  <!-- Centralized package version management (like poetry для Python) -->
+  <!-- This file ensures all projects use the same package versions and resolves conflicts -->
+  
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+  <!-- Common Analysis Settings -->
+  <PropertyGroup>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <WarningsNotAsErrors />
+    <NoWarn>$(NoWarn);CS1591</NoWarn> <!-- Missing XML comments -->
+  </PropertyGroup>
+
+  <!-- Auto-update packages on restore (optional) -->
+  <!-- Uncomment to enable automatic package updates -->
+  <!-- <PropertyGroup>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup> -->
+</Project>

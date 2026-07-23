@@ -1,0 +1,107 @@
+name: Architecture Checks
+
+on:
+  # Removed push trigger to save CI minutes
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch: # Manual trigger
+    inputs:
+      verbose_logs:
+        description: 'Upload job logs as artifact'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: architecture-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  js_architecture:
+    name: JS/TS architecture (dependency-cruiser + madge)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Run architecture checks (each package)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p ${{ github.workspace }}/logs
+
+          # Add/Remove folders here if your repo layout changes
+          packages=(frontend notification-service integration-gateway)
+
+          {
+            for dir in "${packages[@]}"; do
+              if [ -f "$dir/package.json" ]; then
+                echo "==> $dir"
+
+                (cd "$dir" && npm ci)
+
+                # Install tools without modifying package-lock.json
+                (cd "$dir" && npm install --no-save --no-package-lock dependency-cruiser madge)
+
+                # dependency-cruiser: validates against .dependency-cruiser.js ruleset
+                # Pass --ts-config only if tsconfig.json exists
+                if [ -f "$dir/tsconfig.json" ]; then
+                  (cd "$dir" && npx depcruise --config ../.dependency-cruiser.js --ts-config ./tsconfig.json ./src)
+                else
+                  (cd "$dir" && npx depcruise --config ../.dependency-cruiser.js ./src)
+                fi
+
+                # madge: quick cycle detector
+                (cd "$dir" && npx madge --circular --extensions ts,tsx,js,jsx ./src)
+              else
+                echo "==> Skipping $dir (no package.json)"
+              fi
+            done
+          } 2>&1 | tee ${{ github.workspace }}/logs/js-arch.log
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: architecture-js-logs
+          path: ${{ github.workspace }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  dotnet_architecture:
+    name: .NET architecture (NetArchTest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Run architecture tests
+        run: |
+          mkdir -p ${{ github.workspace }}/logs
+          set -o pipefail
+          # Runs only tests tagged as Architecture (see tests/Architecture/ArchitectureTests.cs)
+          dotnet test --no-build --filter "Category=Architecture" 2>&1 | tee ${{ github.workspace }}/logs/dotnet-arch.log
+
+      - name: Upload job logs
+        if: always() && inputs.verbose_logs == true
+        uses: actions/upload-artifact@v5
+        with:
+          name: architecture-dotnet-logs
+          path: ${{ github.workspace }}/logs/
+          if-no-files-found: ignore
+          retention-days: 7

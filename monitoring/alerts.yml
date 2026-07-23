@@ -1,0 +1,319 @@
+groups:
+  - name: devhunt_alerts
+    interval: 30s
+    rules:
+      # Integration Gateway - high error ratio
+      - alert: IntegrationGatewayHighErrorRate
+        expr: >
+          (
+            sum(rate(integration_gateway_http_requests_total{status_code=~"5.."}[5m]))
+              /
+            sum(rate(integration_gateway_http_requests_total[5m]))
+          ) > 0.10
+          and sum(rate(integration_gateway_http_requests_total[5m])) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          service: integration-gateway
+        annotations:
+          summary: "Integration Gateway 5xx rate > 10%"
+          description: "Integration Gateway 5xx error ratio is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: NotificationServiceHighErrorRate
+        expr: >
+          (
+            sum(rate(notification_service_http_requests_total{status_code=~"5.."}[5m]))
+              /
+            sum(rate(notification_service_http_requests_total[5m]))
+          ) > 0.10
+          and sum(rate(notification_service_http_requests_total[5m])) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          service: notification-service
+        annotations:
+          summary: "Notification Service 5xx rate > 10%"
+          description: "Notification Service 5xx error ratio is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: RabbitMQConsumerDisconnected
+        expr: |
+          (integration_gateway_rabbitmq_connection_state == 0)
+            or (notification_service_rabbitmq_connection_state == 0)
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RabbitMQ consumer disconnected"
+          description: "One of the Node.js consumers reports rabbitmq_connection_state == 0. Check integration-gateway and notification-service."
+
+      - alert: IntegrationGatewayHighLatency
+        expr: >
+          histogram_quantile(
+            0.95,
+            sum(rate(integration_gateway_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1.5
+          and sum(rate(integration_gateway_http_requests_total[5m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          service: integration-gateway
+        annotations:
+          summary: "Integration Gateway latency p95 > 1.5s"
+          description: "95-й процентиль времени ответа Integration Gateway {{ $value }}s в течение 10 минут."
+
+      - alert: NotificationServiceHighLatency
+        expr: >
+          histogram_quantile(
+            0.95,
+            sum(rate(notification_service_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 2
+          and sum(rate(notification_service_http_requests_total[5m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          service: notification-service
+        annotations:
+          summary: "Notification Service latency p95 > 2s"
+          description: "95-й процентиль времени ответа Notification Service {{ $value }}s в течение 10 минут."
+
+      - alert: IntegrationGatewayThrottleBacklog
+        expr: integration_gateway_throttle_queue_length > 20
+        for: 3m
+        labels:
+          severity: warning
+          service: integration-gateway
+        annotations:
+          summary: "Integration Gateway очередь запросов > 20"
+          description: "Очередь запросов Integration Gateway держится выше 20 элементов более 3 минут."
+
+      - alert: NotificationServiceThrottleBacklog
+        expr: notification_service_throttle_queue_length > 20
+        for: 3m
+        labels:
+          severity: warning
+          service: notification-service
+        annotations:
+          summary: "Notification Service очередь запросов > 20"
+          description: "Очередь запросов Notification Service держится выше 20 элементов более 3 минут."
+
+      - alert: IntegrationGatewayEventDrops
+        expr: rate(integration_gateway_event_messages_total{status="dropped"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: integration-gateway
+        annotations:
+          summary: "Integration Gateway dropping events"
+          description: "Integration Gateway теряет события (status=dropped). Проверьте интеграции и внешние API."
+
+      - alert: IntegrationGatewayEventRetries
+        expr: rate(integration_gateway_event_messages_total{status="retried"}[5m]) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+          service: integration-gateway
+        annotations:
+          summary: "Integration Gateway event retries > 0.2 /s"
+          description: "Высокий уровень повторных попыток Integration Gateway ({{ $value }} в секунду)."
+
+      - alert: NotificationServiceEventDrops
+        expr: rate(notification_service_event_messages_total{status="dropped"}[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          service: notification-service
+        annotations:
+          summary: "Notification Service dropping events"
+          description: "Notification Service теряет события (status=dropped). Проверьте SMTP/SMS/Push провайдеров."
+
+      - alert: IntegrationGatewayThrottleBackpressure
+        expr: integration_gateway_throttle_overloaded > 0
+        for: 2m
+        labels:
+          severity: warning
+          service: integration-gateway
+        annotations:
+          summary: "Integration Gateway backpressure active"
+          description: "Integration Gateway is reporting system overload/backpressure for 2 minutes."
+
+      # Core API errors/latency
+      - alert: CoreApiHighErrorRate
+        expr: >
+          (
+            sum(rate(http_requests_total{job="core-api",status_code=~"5.."}[5m]))
+              /
+            sum(rate(http_requests_total{job="core-api"}[5m]))
+          ) > 0.05
+          and sum(rate(http_requests_total{job="core-api"}[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: critical
+          service: core-api
+        annotations:
+          summary: "Core API 5xx rate > 5%"
+          description: "Core API 5xx ratio is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: CoreApiHighLatency
+        expr: >
+          histogram_quantile(
+            0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="core-api"}[5m])) by (le)
+          ) > 1.5
+          and sum(rate(http_requests_total{job="core-api"}[5m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+          service: core-api
+        annotations:
+          summary: "Core API latency p95 > 1.5s"
+          description: "Core API 95th percentile latency is {{ $value }}s over 10 minutes."
+
+      # Auth Service errors/latency
+      - alert: AuthServiceHighErrorRate
+        expr: >
+          (
+            sum(rate(auth_http_requests_total{status_code=~"5.."}[5m]))
+              /
+            sum(rate(auth_http_requests_total[5m]))
+          ) > 0.05
+          and sum(rate(auth_http_requests_total[5m])) > 0.2
+        for: 5m
+        labels:
+          severity: critical
+          service: auth-service
+        annotations:
+          summary: "Auth Service 5xx rate > 5%"
+          description: "Auth Service 5xx ratio is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      - alert: AuthServiceHighLatency
+        expr: >
+          histogram_quantile(
+            0.95,
+            sum(rate(auth_http_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1
+          and sum(rate(auth_http_requests_total[5m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+          service: auth-service
+        annotations:
+          summary: "Auth Service latency p95 > 1s"
+          description: "Auth Service 95th percentile latency is {{ $value }}s over 10 minutes."
+
+      # High error rate
+      - alert: HighErrorRate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value }} errors/sec for {{ $labels.service }}"
+
+      # High response time
+      - alert: HighResponseTime
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m])) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time"
+          description: "95th percentile response time is {{ $value }}s for {{ $labels.service }}"
+
+      # Service down
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service is down"
+          description: "{{ $labels.job }} has been down for more than 1 minute"
+
+      # High CPU usage
+      - alert: HighCPUUsage
+        expr: process_cpu_seconds_total > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}% for {{ $labels.service }}"
+
+      # High memory usage
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes / 1024 / 1024 > 1024
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value }}MB for {{ $labels.service }}"
+
+      # Database connection issues
+      - alert: DatabaseConnectionErrors
+        expr: rate(db_connection_errors_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection errors"
+          description: "Database connection errors detected for {{ $labels.service }}"
+
+      # PostgreSQL specific alerts
+      - alert: PostgreSQLHighConnections
+        expr: pg_stat_database_numbackends{datname="devhunt_db"} > 80
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High PostgreSQL connections"
+          description: "PostgreSQL has {{ $value }} active connections (limit: 100)"
+
+      - alert: PostgreSQLSlowQueries
+        expr: rate(pg_stat_statements_max_exec_time[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow PostgreSQL queries detected"
+          description: "PostgreSQL queries taking longer than 1 second"
+
+      # Redis specific alerts
+      - alert: RedisHighMemory
+        expr: redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Redis high memory usage"
+          description: "Redis memory usage is {{ $value | humanizePercentage }}"
+
+      - alert: RedisConnectionErrors
+        expr: rate(redis_connected_clients_errors_total[5m]) > 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis connection errors"
+          description: "Redis connection errors detected"
+
+      # RabbitMQ specific alerts
+      - alert: RabbitMQHighQueueLength
+        expr: rabbitmq_queue_messages{queue="devhunt.notifications"} > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "RabbitMQ queue length is high"
+          description: "Queue {{ $labels.queue }} has {{ $value }} messages"
+
+      - alert: RabbitMQConsumerDown
+        expr: rabbitmq_queue_consumers{queue="devhunt.notifications"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "RabbitMQ consumer is down"
+          description: "No consumers for queue {{ $labels.queue }}"
+

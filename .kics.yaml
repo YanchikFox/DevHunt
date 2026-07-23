@@ -1,0 +1,54 @@
+# KICS Configuration
+# https://docs.kics.io/latest/configuration-file/
+
+# Paths to scan
+path: 
+  - docker-compose.yml
+  - docker-compose.prod.yml
+  - docker-compose.monitoring.yml
+  - docker-compose.e2e.yml
+  - k8s/
+
+# Output settings
+output-path: kics-results
+output-name: results
+
+# Exclude paths
+exclude-paths:
+  - node_modules
+  - .git
+  - vendor
+  - bin
+  - obj
+
+# Exclude specific queries (with justification)
+exclude-queries:
+  # Healthcheck instruction not added - we use K8s probes
+  # - b03a748a-542d-44f4-bb86-9199ab4fd2d5
+
+# Severity threshold (fail on high and above)
+fail-on:
+  - high
+  - critical
+
+# Scan types
+type:
+  - Dockerfile
+  - Kubernetes
+  - DockerCompose
+
+# Enable verbose output
+verbose: false
+
+# Disable secrets detection (we have TruffleHog for that)
+disable-secrets: true
+
+# Performance
+queries-path: []
+libraries-path: []
+
+# Cloud provider (if needed)
+# cloud-provider:
+#   - aws
+#   - azure
+#   - gcp
