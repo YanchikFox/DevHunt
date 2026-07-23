@@ -6,7 +6,7 @@ python-dotenv==1.2.1
 httpx==0.27.0
 PyJWT==2.10.1
 aio-pika==9.4.1
-redis==7.1.0  # PERF-008: Cache for ML recommendations
+redis==8.0.1  # PERF-008: Cache for ML recommendations
 
 # Embeddings for semantic RAG search (ONNX-based, no PyTorch — ~50MB vs 1.5GB)
 fastembed==0.4.2
