@@ -64,7 +64,7 @@ jobs:
 
       - name: Upload job logs
         if: always() && inputs.verbose_logs == true
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: iac-checkov-logs
           path: ${{ github.workspace }}/logs/
@@ -103,7 +103,7 @@ jobs:
 
       - name: Upload job logs
         if: always() && inputs.verbose_logs == true
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: iac-kubesec-logs
           path: ${{ github.workspace }}/logs/
@@ -137,7 +137,7 @@ jobs:
           wait-for-processing: false
 
       - name: Upload KICS results
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: kics-results
@@ -146,7 +146,7 @@ jobs:
 
       - name: Upload job logs
         if: always() && inputs.verbose_logs == true
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: iac-kics-logs
           path: kics-results/

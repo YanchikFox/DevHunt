@@ -68,7 +68,7 @@ jobs:
 
       - name: Upload job logs
         if: always() && inputs.verbose_logs == true
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: architecture-js-logs
           path: ${{ github.workspace }}/logs/
@@ -99,7 +99,7 @@ jobs:
 
       - name: Upload job logs
         if: always() && inputs.verbose_logs == true
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: architecture-dotnet-logs
           path: ${{ github.workspace }}/logs/

@@ -128,7 +128,7 @@ jobs:
           K6_BASE_URL: http://localhost:5000
 
       - name: Upload k6 results
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: k6-smoke-results
@@ -230,7 +230,7 @@ jobs:
           K6_DURATION: ${{ env.K6_DURATION }}
 
       - name: Upload k6 results
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: k6-load-results
