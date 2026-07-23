@@ -38,7 +38,7 @@ jobs:
           } 2>&1 | tee logs/hadolint-all.log
 
       - name: Run Hadolint with SARIF output
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: ./DevHunt.CoreApi/Dockerfile
           config: .hadolint.yaml
