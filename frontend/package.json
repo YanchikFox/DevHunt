@@ -54,7 +54,7 @@
     "dompurify": "^3.4.8",
     "framer-motion": "^12.34.0",
     "lucide-react": "^0.553.0",
-    "mermaid": "^11.4.1",
+    "mermaid": "^11.16.0",
     "next": "^16.0.1",
     "next-auth": "^5.0.0-beta.19",
     "next-intl": "^4.5.3",
