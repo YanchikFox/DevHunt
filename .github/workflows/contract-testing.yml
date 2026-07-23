@@ -78,7 +78,7 @@ jobs:
         continue-on-error: true
 
       - name: Upload pacts as artifact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: pacts
           path: frontend/pacts/
@@ -87,7 +87,7 @@ jobs:
 
       - name: Upload job logs
         if: always() && inputs.verbose_logs == true
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: pact-consumer-logs
           path: ${{ github.workspace }}/logs/
@@ -153,7 +153,7 @@ jobs:
 
       - name: Upload job logs
         if: always() && inputs.verbose_logs == true
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: pact-provider-coreapi-logs
           path: ${{ github.workspace }}/logs/
@@ -214,7 +214,7 @@ jobs:
 
       - name: Upload job logs
         if: always() && inputs.verbose_logs == true
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: pact-provider-auth-logs
           path: ${{ github.workspace }}/logs/
@@ -244,7 +244,7 @@ jobs:
 
       - name: Upload job logs
         if: always() && inputs.verbose_logs == true
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: pact-deploy-check-logs
           path: ${{ github.workspace }}/logs/
