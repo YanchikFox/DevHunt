@@ -51,7 +51,7 @@ jobs:
         fi
     
     - name: Build and push Core API
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         context: .
         file: ./DevHunt.CoreApi/Dockerfile
@@ -64,7 +64,7 @@ jobs:
           build-date=${{ github.event.head_commit.timestamp }}
     
     - name: Build and push Auth Service
-      uses: docker/build-push-action@v6
+      uses: docker/build-push-action@v7
       with:
         context: .
         file: ./DevHunt.AuthService/Dockerfile

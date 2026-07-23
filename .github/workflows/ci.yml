@@ -325,7 +325,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Core API image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./DevHunt.CoreApi/Dockerfile
@@ -335,7 +335,7 @@ jobs:
           cache-to: type=inline
 
       - name: Build Auth Service image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./DevHunt.AuthService/Dockerfile
@@ -345,7 +345,7 @@ jobs:
           cache-to: type=inline
 
       - name: Build Frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
@@ -355,7 +355,7 @@ jobs:
           cache-to: type=inline
 
       - name: Build ML Service image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: ./ml-service
           file: ./ml-service/Dockerfile
@@ -365,7 +365,7 @@ jobs:
           cache-to: type=inline
 
       - name: Build Notification Service image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./notification-service/Dockerfile
@@ -375,7 +375,7 @@ jobs:
           cache-to: type=inline
 
       - name: Build Integration Gateway image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./integration-gateway/Dockerfile
