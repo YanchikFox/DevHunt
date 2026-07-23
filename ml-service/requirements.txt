@@ -9,7 +9,7 @@ aio-pika==9.4.1
 redis==7.1.0  # PERF-008: Cache for ML recommendations
 
 # Embeddings for semantic RAG search (ONNX-based, no PyTorch — ~50MB vs 1.5GB)
-fastembed==0.4.2
+fastembed==0.8.0
 
 google-generativeai==0.8.3
 
