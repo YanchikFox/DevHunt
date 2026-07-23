@@ -6,9 +6,21 @@ import { Loader2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api/client"
 import type { ProjectMemberPermission } from "@/components/projects/ProjectPermissionsPanel"
@@ -74,15 +86,32 @@ const normalizeVisibility = (value?: string | null): ProjectVisibilityOption => 
  * />
  * ```
  */
-function ProjectVisibilitySelect({ label, value, onChange, disabled, placeholder, tVal }: {
-  label: string; value: ProjectVisibilityOption; onChange: (v: ProjectVisibilityOption) => void
-  disabled: boolean; placeholder: string; tVal: (k: string) => string
+function ProjectVisibilitySelect({
+  label,
+  value,
+  onChange,
+  disabled,
+  placeholder,
+  tVal,
+}: {
+  label: string
+  value: ProjectVisibilityOption
+  onChange: (v: ProjectVisibilityOption) => void
+  disabled: boolean
+  placeholder: string
+  tVal: (k: string) => string
 }) {
   return (
     <div className="space-y-2">
       <Label className="text-xs uppercase tracking-wide">{label}</Label>
-      <Select value={value} onValueChange={(v) => onChange(normalizeVisibility(v))} disabled={disabled}>
-        <SelectTrigger><SelectValue placeholder={placeholder} /></SelectTrigger>
+      <Select
+        value={value}
+        onValueChange={(v) => onChange(normalizeVisibility(v))}
+        disabled={disabled}
+      >
+        <SelectTrigger>
+          <SelectValue placeholder={placeholder} />
+        </SelectTrigger>
         <SelectContent>
           <SelectItem value="public">{tVal("public")}</SelectItem>
           <SelectItem value="members">{tVal("members")}</SelectItem>
@@ -110,8 +139,10 @@ export function ProjectSettingsDialog({
   const tCommon = useTranslations("common")
 
   const [projectVisibility, setProjectVisibility] = useState<ProjectVisibilityOption>("public")
-  const [defaultNewsVisibility, setDefaultNewsVisibility] = useState<ProjectVisibilityOption>("public")
-  const [defaultFilesVisibility, setDefaultFilesVisibility] = useState<ProjectVisibilityOption>("members")
+  const [defaultNewsVisibility, setDefaultNewsVisibility] =
+    useState<ProjectVisibilityOption>("public")
+  const [defaultFilesVisibility, setDefaultFilesVisibility] =
+    useState<ProjectVisibilityOption>("members")
   const queryClient = useQueryClient()
   const updateProjectVisibility = useMutation({
     mutationFn: async ({
@@ -154,9 +185,9 @@ export function ProjectSettingsDialog({
     )
     const filesVisibility = normalizeVisibility(
       project?.defaultFilesVisibility ??
-      project?.defaultMediaVisibility ??
-      project?.filesVisibility ??
-      project?.visibility
+        project?.defaultMediaVisibility ??
+        project?.filesVisibility ??
+        project?.visibility
     )
 
     setProjectVisibility(visibility)
@@ -229,7 +260,7 @@ export function ProjectSettingsDialog({
     onUpdated,
     toast,
     t,
-    tCommon
+    tCommon,
   ])
 
   const isSavingSettings = updateProjectSettings.isPending || updateProjectVisibility.isPending
@@ -239,9 +270,7 @@ export function ProjectSettingsDialog({
       <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>
-            {t("description")}
-          </DialogDescription>
+          <DialogDescription>{t("description")}</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-6">
@@ -255,7 +284,9 @@ export function ProjectSettingsDialog({
                 label={t("projectVisibility")}
                 value={projectVisibility}
                 onChange={handleVisibilityChange}
-                disabled={!canManage || updateProjectVisibility.isPending || updateProjectSettings.isPending}
+                disabled={
+                  !canManage || updateProjectVisibility.isPending || updateProjectSettings.isPending
+                }
                 placeholder={t("selectVisibility")}
                 tVal={tVal}
               />
@@ -265,7 +296,11 @@ export function ProjectSettingsDialog({
                   label={t("defaultNewsVisibility")}
                   value={defaultNewsVisibility}
                   onChange={handleDefaultNewsVisibilityChange}
-                  disabled={!canManage || updateProjectVisibility.isPending || updateProjectSettings.isPending}
+                  disabled={
+                    !canManage ||
+                    updateProjectVisibility.isPending ||
+                    updateProjectSettings.isPending
+                  }
                   placeholder={t("newsVisibilityPlaceholder")}
                   tVal={tVal}
                 />
@@ -273,7 +308,11 @@ export function ProjectSettingsDialog({
                   label={t("defaultFilesVisibility")}
                   value={defaultFilesVisibility}
                   onChange={handleDefaultFilesVisibilityChange}
-                  disabled={!canManage || updateProjectVisibility.isPending || updateProjectSettings.isPending}
+                  disabled={
+                    !canManage ||
+                    updateProjectVisibility.isPending ||
+                    updateProjectSettings.isPending
+                  }
                   placeholder={t("filesVisibilityPlaceholder")}
                   tVal={tVal}
                 />

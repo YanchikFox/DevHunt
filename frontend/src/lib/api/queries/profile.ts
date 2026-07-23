@@ -141,13 +141,10 @@ export function useUploadAvatar() {
  * @returns Mutation result for deleting the avatar.
  */
 export function useDeleteAvatar() {
-  return useProfileMutation<unknown, void>(
-    async () => {
-      const response = await apiClient.delete("/Profile/avatar")
-      return response.data
-    },
-    [["profile", "me"]]
-  )
+  return useProfileMutation<unknown, void>(async () => {
+    const response = await apiClient.delete("/Profile/avatar")
+    return response.data
+  }, [["profile", "me"]])
 }
 
 /**
@@ -204,7 +201,6 @@ export function useActivateAccount() {
     },
   })
 }
-
 
 /**
  * Hook to fetch the user activity feed.
