@@ -12,10 +12,7 @@ import type { NextRequest } from "next/server"
 export async function getServerAccessToken(req?: NextRequest): Promise<string | null> {
   const token = await getToken({
     req: req ?? { headers: await nextHeaders() },
-    secret:
-      process.env.AUTH_SECRET ||
-      process.env.NEXTAUTH_SECRET ||
-      process.env.JWT_KEY,
+    secret: process.env.AUTH_SECRET || process.env.NEXTAUTH_SECRET || process.env.JWT_KEY,
   })
 
   return typeof token?.accessToken === "string" ? token.accessToken : null

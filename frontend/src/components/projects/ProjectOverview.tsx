@@ -122,8 +122,8 @@ function OpenRolesSection({
                   {v.currentFilled}/{v.totalNeeded} {t("teams.slotsFilled")}
                 </p>
               )}
-              {canApply && (
-                isPendingThisRole ? (
+              {canApply &&
+                (isPendingThisRole ? (
                   <div className="flex gap-2">
                     <Button size="sm" variant="outline" className="flex-1 text-xs" disabled>
                       {t("teams.applied")}
@@ -139,11 +139,15 @@ function OpenRolesSection({
                     </Button>
                   </div>
                 ) : (
-                  <Button size="sm" variant="outline" className="w-full text-xs" onClick={handleApply}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="w-full text-xs"
+                    onClick={handleApply}
+                  >
                     {t("teams.apply")}
                   </Button>
-                )
-              )}
+                ))}
             </div>
           )
         })}
