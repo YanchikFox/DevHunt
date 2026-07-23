@@ -78,7 +78,7 @@
     "@axe-core/react": "^4.8.4",
     "@playwright/test": "^1.41.0",
     "@storybook/addon-a11y": "^10.2.19",
-    "@storybook/addon-docs": "^10.2.19",
+    "@storybook/addon-docs": "^10.5.3",
     "@storybook/react": "^10.2.19",
     "@storybook/react-vite": "^10.2.19",
     "@tailwindcss/typography": "^0.5.19",
