@@ -97,7 +97,7 @@
     "chromatic": "^13.3.4",
     "eslint": "^9.39.1",
     "eslint-config-next": "^16.0.1",
-    "eslint-plugin-storybook": "10.2.19",
+    "eslint-plugin-storybook": "10.5.3",
     "husky": "^9.1.7",
     "jest-axe": "^8.0.0",
     "jsdom": "^27.3.0",
