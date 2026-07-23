@@ -11,7 +11,7 @@ redis==7.1.0  # PERF-008: Cache for ML recommendations
 # Embeddings for semantic RAG search (ONNX-based, no PyTorch — ~50MB vs 1.5GB)
 fastembed==0.4.2
 
-google-generativeai==0.8.3
+google-generativeai==0.8.6
 
 prometheus-client==0.20.0
 # OpenTelemetry packages - версии согласованы для избежания конфликта semantic-conventions
