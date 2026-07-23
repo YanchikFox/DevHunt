@@ -20,7 +20,15 @@ vi.mock("@/hooks/use-current-user", () => {
 vi.mock("@/i18n/routing", () => {
   return {
     routing: { locales: ["pl", "en"], defaultLocale: "pl" },
-    Link: ({ href, children, ...props }: { href: string | object; children: React.ReactNode; [key: string]: unknown }) =>
+    Link: ({
+      href,
+      children,
+      ...props
+    }: {
+      href: string | object
+      children: React.ReactNode
+      [key: string]: unknown
+    }) =>
       React.createElement(
         "a",
         { href: typeof href === "string" ? href : String(href), ...props },
@@ -34,7 +42,8 @@ vi.mock("@/i18n/routing", () => {
 
 vi.mock("@/components/theme-toggle", () => {
   return {
-    ThemeToggle: () => React.createElement("button", { type: "button", "aria-label": "Toggle theme" }),
+    ThemeToggle: () =>
+      React.createElement("button", { type: "button", "aria-label": "Toggle theme" }),
   }
 })
 

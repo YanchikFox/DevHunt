@@ -194,7 +194,7 @@ public class ProjectsControllerTests : IDisposable
         result.Should().NotBeNull();
         var createdResult = result.Result.Should().BeOfType<CreatedAtActionResult>().Subject;
         var project = createdResult.Value.Should().BeOfType<ProjectsController.ProjectDetailsDto>().Subject;
-        
+
         project.Title.Should().Be("Test Project");
         project.OwnerId.Should().Be(_testUserId);
         project.Status.Should().Be("draft");
@@ -243,7 +243,7 @@ public class ProjectsControllerTests : IDisposable
         var actionResult = result.Result;
         actionResult.Should().NotBeNull();
         actionResult.Should().BeAssignableTo<ObjectResult>();
-        
+
         // Get the value and verify it contains validation errors
         var objectResult = (ObjectResult)actionResult!;
         var validationProblem = objectResult.Value as ValidationProblemDetails;
@@ -499,10 +499,10 @@ public class ProjectsControllerTests : IDisposable
         result.Should().NotBeNull();
         var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
         okResult.Value.Should().NotBeNull();
-        
+
         var json = JsonSerializer.Serialize(okResult.Value);
         using var doc = JsonDocument.Parse(json);
-        
+
         doc.RootElement.GetProperty("Data").GetArrayLength().Should().Be(10);
         doc.RootElement.GetProperty("Pagination").GetProperty("Total").GetInt32().Should().Be(15);
         doc.RootElement.GetProperty("Pagination").GetProperty("TotalPages").GetInt32().Should().Be(2);
