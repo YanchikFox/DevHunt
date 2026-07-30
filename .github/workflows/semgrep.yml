@@ -84,7 +84,7 @@ jobs:
     # ──────────────────────────────────────────────────────────────
     - name: Upload cloud SARIF to Security tab
       if: always() && hashFiles('semgrep-cloud.sarif') != ''
-      uses: github/codeql-action/upload-sarif@v4
+      uses: github/codeql-action/upload-sarif@v4.37.3
       with:
         sarif_file: semgrep-cloud.sarif
         category: semgrep-cloud
@@ -92,7 +92,7 @@ jobs:
 
     - name: Upload local SARIF to Security tab
       if: always() && hashFiles('semgrep-local.sarif') != ''
-      uses: github/codeql-action/upload-sarif@v4
+      uses: github/codeql-action/upload-sarif@v4.37.3
       with:
         sarif_file: semgrep-local.sarif
         category: semgrep-devhunt-rules
